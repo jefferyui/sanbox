@@ -1,0 +1,3 @@
+[submodule "submodule_repo"]
+	path = submodule_repo
+	url = git@github.com:jefferyui/sanbox.git
