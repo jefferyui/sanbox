@@ -1,5 +1,6 @@
 feature columns input keras API
 https://github.com/tensorflow/tensorflow/issues/27416
+https://blog.csdn.net/l491899327/article/details/108691096
 https://stackoverflow.com/questions/55421386/tensorflow-keras-how-to-convert-tf-feature-column-into-input-tensors
 https://stackoverflow.com/questions/55421386/tensorflow-keras-how-to-convert-tf-feature-column-into-input-tensors
 https://blog.csdn.net/qq_33793792/article/details/104358366
