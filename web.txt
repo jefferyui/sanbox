@@ -10,8 +10,32 @@ https://stackoverflow.com/questions/58769933/serving-a-tensorflow-2-keras-model-
 https://dantegates.github.io/2019/10/24/tensorflow-2-feature-columns-and-keras.html
 https://stackoverflow.com/questions/54375298/how-to-use-tensorflow-feature-columns-as-input-to-a-keras-model
 
+https://stackoverflow.com/questions/63239226/usage-of-tf-keras-layers-densefeatures
+feature_columns = []
+bins = [-125, -75, -50, -25, 0, 25, 50, 75, 125]
+temp_num = feature_column.numeric_column('temp')
+temp_buckets = feature_column.bucketized_column(temp_num, boundaries=bins)
+feature_columns.append(temp_buckets)
+feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
+
+# create a dictionary to associate column names with column values
+inputs = {}
+inputs["temp_num"] = tf.keras.Input(shape=(1,), name="temp_num") 
+
+# convert FeatureColumns into a single tensor layer
+x = feature_layer(inputs)
+
+x = tf.keras.layers.Dense(128, activation='relu')(x)
+x = tf.keras.layers.Dense(128, activation='relu')(x)
+x = tf.keras.layers.Dropout(.1)(x)
+out = tf.keras.layers.Dense(1)(x)
+
+model = tf.keras.Model(inputs=dict(inputs), outputs=out)
 
 tf.keras.layers.DenseFeatures
 https://medium.com/ml-book/demonstration-of-tensorflow-feature-columns-tf-feature-column-3bfcca4ca5c4
 https://medium.com/ml-book/train-tf-keras-model-using-feature-coulmn-8de12e65ddec
 https://medium.com/ml-book/train-linear-model-and-boosted-tree-model-in-tensorflow-2-0-using-feature-columns-5e0b4ce4bd4
+
+Input(shape(1,)) python
+https://ithelp.ithome.com.tw/articles/10234389
