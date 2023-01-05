@@ -1,8 +1,15 @@
 feature columns input keras API
 https://stackoverflow.com/questions/55421386/tensorflow-keras-how-to-convert-tf-feature-column-into-input-tensors
 https://stackoverflow.com/questions/55421386/tensorflow-keras-how-to-convert-tf-feature-column-into-input-tensors
+https://blog.csdn.net/qq_33793792/article/details/104358366
 https://www.runoob.com/python/att-dictionary-values.html
 
 https://stackoverflow.com/questions/58769933/serving-a-tensorflow-2-keras-model-with-feature-columns-and-preprocessing-migra
 https://dantegates.github.io/2019/10/24/tensorflow-2-feature-columns-and-keras.html
 https://stackoverflow.com/questions/54375298/how-to-use-tensorflow-feature-columns-as-input-to-a-keras-model
+
+
+tf.keras.layers.DenseFeatures
+https://medium.com/ml-book/demonstration-of-tensorflow-feature-columns-tf-feature-column-3bfcca4ca5c4
+https://medium.com/ml-book/train-tf-keras-model-using-feature-coulmn-8de12e65ddec
+https://medium.com/ml-book/train-linear-model-and-boosted-tree-model-in-tensorflow-2-0-using-feature-columns-5e0b4ce4bd4
