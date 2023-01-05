@@ -104,3 +104,4 @@ https://medium.com/ml-book/train-linear-model-and-boosted-tree-model-in-tensorfl
 
 Input(shape(1,)) python
 https://ithelp.ithome.com.tw/articles/10234389
+https://ithelp.ithome.com.tw/articles/10234389
