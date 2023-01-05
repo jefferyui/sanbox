@@ -1,0 +1,2 @@
+feature columns input keras API
+https://stackoverflow.com/questions/55421386/tensorflow-keras-how-to-convert-tf-feature-column-into-input-tensors
