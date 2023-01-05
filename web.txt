@@ -10,6 +10,42 @@ https://stackoverflow.com/questions/58769933/serving-a-tensorflow-2-keras-model-
 https://dantegates.github.io/2019/10/24/tensorflow-2-feature-columns-and-keras.html
 https://stackoverflow.com/questions/54375298/how-to-use-tensorflow-feature-columns-as-input-to-a-keras-model
 
+https://stackoverflow.com/questions/55421386/tensorflow-keras-how-to-convert-tf-feature-column-into-input-tensors
+# This you have defined feauture column
+kid_youngest_month = feature_column.numeric_column("kid_youngest_month")
+     kid_age_youngest_buckets = feature_column.bucketized_column(kid_youngest_month, boundaries=[12, 24, 36, 72, 96])
+
+# Then define layer
+feature_layer = tf.keras.layers.DenseFeatures(kid_age_youngest_buckets)
+
+# The inputs for DenseFeature layer should be define for each original feature column as dictionary, where
+# keys - names of feature columns
+# values - tf.keras.Input with shape =(1,), name='name_of_feature_column', dtype - actual type of original column 
+feature_layer_inputs = {}
+feature_layer_inputs['kid_youngest_month'] = tf.keras.Input(shape=(1,), name='kid_youngest_month', dtype=tf.int8)
+
+# Then you can collect inputs of other layers and feature_layer_inputs into one list 
+inputs=[review_meta_id_input, priors_input, [v for v in feature_layer_inputs.values()]]
+
+# Then define outputs of this DenseFeature layer
+feature_layer_outputs = feature_layer(feature_layer_inputs)
+# And pass them into other layer like any other
+x = tf.keras.layers.Dense(256, activation='relu')(feature_layer_outputs)
+# Or maybe concatenate them with outputs from your others layers
+combined = tf.keras.layers.concatenate([x, feature_layer_outputs])
+
+#And probably you will finish with last output layer, maybe like this for calssification
+o=tf.keras.layers.Dense(classes_number, activation='softmax', name='sequential_output')(combined)
+
+#So you pass to the model:
+
+model_combined = tf.keras.models.Model(inputs=[s_inputs, [v for v in feature_layer_inputs.values()]], outputs=o)
+
+
+
+##################################################################################################
+
+
 https://stackoverflow.com/questions/63239226/usage-of-tf-keras-layers-densefeatures
 feature_columns = []
 bins = [-125, -75, -50, -25, 0, 25, 50, 75, 125]
