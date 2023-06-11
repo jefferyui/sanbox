@@ -94,3 +94,30 @@ corr_matrix = df.groupby(['wafer', 'product']).corr()
 
 print("相關係數:")
 print(corr_matrix)
+
+
+import pandas as pd
+from joblib import Parallel, delayed
+
+# 範例數據
+data = {'wafer': ['A', 'A', 'B', 'B', 'C', 'C'],
+        'product': ['X', 'Y', 'X', 'Y', 'X', 'Y'],
+        'value': [1, 2, 3, 4, 5, 6]}
+df = pd.DataFrame(data)
+
+# 定義計算相關係數的函數
+def calculate_corr(group):
+    return group.corr()
+
+# 將'X'和'Y'的數值放在同一欄
+df_pivot = df.pivot(index='wafer', columns='product', values='value')
+
+# 使用joblib並行計算相關係數
+corr_matrix = Parallel(n_jobs=-1)(delayed(calculate_corr)(group) for _, group in df_pivot.groupby(level=0))
+
+# 合併相關係數矩陣
+corr_df = pd.concat(corr_matrix, keys=df_pivot.index.unique())
+
+print("相關係數:")
+print(corr_df)
+
