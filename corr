@@ -1,0 +1,96 @@
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.stats import pearsonr
+
+# Create a sample sparse matrix with multiple groups
+data = np.array([0.5, 0.0, 0.0, 0.2, 0.0, 0.4, 0.3, 0.1, 0.0, 0.0, 0.0, 0.2])
+row_indices = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5])
+col_indices = np.array([0, 2, 1, 2, 0, 1, 0, 2, 1, 3, 2, 3])
+sparse_matrix = csr_matrix((data, (row_indices, col_indices)), shape=(6, 4))
+
+# Calculate the correlation for each group
+num_groups = 2
+group_indices = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5])
+correlation_matrix = np.zeros((num_groups, num_groups))
+
+for i in range(num_groups):
+    for j in range(i, num_groups):
+        group_i_indices = np.where(group_indices == i)[0]
+        group_j_indices = np.where(group_indices == j)[0]
+        group_i_sparse = sparse_matrix[group_i_indices, :]
+        group_j_sparse = sparse_matrix[group_j_indices, :]
+        correlation, _ = pearsonr(group_i_sparse.T.todense(), group_j_sparse.T.todense())
+        correlation_matrix[i, j] = correlation
+        correlation_matrix[j, i] = correlation
+
+print(correlation_matrix)
+
+import pandas as pd
+from joblib import Parallel, delayed
+
+# 範例數據
+data = {'wafer': ['A', 'A', 'B', 'B', 'C', 'C'],
+        'product': ['X', 'Y', 'X', 'Y', 'X', 'Y'],
+        'X': [1, 2, 3, 4, 5, 6],
+        'Y': [2, 4, 6, 8, 10, 12]}
+df = pd.DataFrame(data)
+
+# 定義計算相關係數的函數
+def calculate_corr(group):
+    return group.corr()
+
+# 按wafer和product分組
+grouped = df.groupby(['wafer', 'product'])
+
+# 使用joblib並行計算相關係數
+corr_matrix = Parallel(n_jobs=-1)(delayed(calculate_corr)(group) for _, group in grouped)
+
+# 合併相關係數矩陣
+corr_df = pd.concat(corr_matrix, keys=grouped.groups.keys())
+
+print("相關係數:")
+print(corr_df)
+
+
+import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
+
+# 範例數據
+data = {'wafer': ['A', 'A', 'B', 'B', 'C', 'C'],
+        'product': ['X', 'Y', 'X', 'Y', 'X', 'Y'],
+        'X': [1, 2, 3, 4, 5, 6],
+        'Y': [2, 4, 6, 8, 10, 12]}
+df = pd.DataFrame(data)
+
+# 定義計算相關係數的函數
+def calculate_corr(group):
+    return group.corr()
+
+# 按wafer和product分組
+grouped = df.groupby(['wafer', 'product'])
+
+# 使用ThreadPoolExecutor並行計算相關係數
+with ThreadPoolExecutor() as executor:
+    corr_matrix = list(executor.map(calculate_corr, [group for _, group in grouped]))
+
+# 合併相關係數矩陣
+corr_df = pd.concat(corr_matrix, keys=grouped.groups.keys())
+
+print("相關係數:")
+print(corr_df)
+
+
+import pandas as pd
+
+# 範例數據
+data = {'wafer': ['A', 'A', 'B', 'B', 'C', 'C'],
+        'product': ['X', 'Y', 'X', 'Y', 'X', 'Y'],
+        'X': [1, 2, 3, 4, 5, 6],
+        'Y': [2, 4, 6, 8, 10, 12]}
+df = pd.DataFrame(data)
+
+# 按wafer和product計算相關係數
+corr_matrix = df.groupby(['wafer', 'product']).corr()
+
+print("相關係數:")
+print(corr_matrix)
