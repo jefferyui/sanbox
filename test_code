@@ -1,0 +1,14 @@
+
+# 範例 pandas dataframe 某一欄為日期，計算每個日期row的前7天count數量
+import pandas as pd
+import numpy as np
+
+# 创建示例 DataFrame
+data = {'date': ['2023-04-01', '2023-04-02', '2023-04-03', '2023-04-04', '2023-04-05', '2023-04-15']}
+df = pd.DataFrame(data)
+df['date'] = pd.to_datetime(df['date'])  # 将日期列转换为 datetime 类型
+
+# 计算每个日期前7天内的计数数量
+df['count_last_7_days'] = df['date'].apply(lambda x: ((df['date'] >= x - pd.Timedelta(days=7)) & (df['date'] <= x)).sum())
+
+print(df)
