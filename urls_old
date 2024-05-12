@@ -50,3 +50,44 @@ function xicor(X::AbstractVector, Y::AbstractVector, ties::Bool=true)
 end
 
 https://ctruong.perso.math.cnrs.fr/ruptures-docs/build/html/detection/bottomup.html
+
+https://blog.csdn.net/wallace_www/article/details/101363199
+https://gregorygundersen.com/blog/2019/08/13/bocd/
+Bayesian online changepoint detection
+pip install bayesian_changepoint_detection
+
+import numpy as np
+import matplotlib.pyplot as plt
+from bayesian_changepoint_detection.online_changepoint_detection import OnlineChangePointDetection
+
+# Generate synthetic data (e.g., sine wave with an abrupt change)
+time = np.linspace(0, 10, 1000)
+normal_data = np.sin(time)  # Normal data (sine wave)
+anomaly_data = np.sin(time) + 0.5 * np.random.randn(1000)  # Anomaly (sudden jump)
+
+# Initialize the changepoint detector
+detector = OnlineChangePointDetection()
+
+# Update the detector with data points
+for data_point in anomaly_data:
+    detector.update(data_point)
+
+# Get the probabilities of changepoints
+changepoint_probs = detector.get_probabilities()
+
+# Set a threshold for anomaly detection (e.g., 0.8)
+threshold = 0.8
+detected_anomalies = np.where(changepoint_probs > threshold)[0]
+
+# Plot the results
+plt.figure(figsize=(10, 6))
+plt.plot(time, normal_data, label='Normal Data', color='blue')
+plt.plot(time, anomaly_data, label='Anomaly Data', color='red')
+plt.scatter(time[detected_anomalies], anomaly_data[detected_anomalies], color='red', marker='x', label='Detected Anomalies')
+plt.xlabel('Time')
+plt.ylabel('Value')
+plt.title('Bayesian Online Changepoint Detection')
+plt.legend()
+plt.show()
+
+https://github.com/y-bar/bocd/tree/master/notebook
