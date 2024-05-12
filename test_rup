@@ -33,3 +33,36 @@ pelt = rp.Pelt(jump = 20)
 bkps = pelt.fit_predict(signal, 50)
 rp.display(signal, bkps)
 plt.show();
+
+https://medium.com/@sztistvan/anomaly-detection-in-time-series-using-chatgpt-3fc48f958c88
+
+import numpy as np
+import pandas as pd
+from tensorflow import keras
+
+def detect_anomalies_with_autoencoder(series, window_size=20, latent_dim=3, epochs=100):
+    # Prepare the input data
+    X = []
+    for i in range(len(series) - window_size):
+        X.append(series[i:i+window_size])
+    X = np.array(X)
+    
+    # Define the autoencoder architecture
+    model = keras.Sequential([
+        keras.layers.Dense(64, activation='relu', input_shape=(window_size,)),
+        keras.layers.Dense(latent_dim, activation='relu'),
+        keras.layers.Dense(64, activation='relu'),
+        keras.layers.Dense(window_size, activation='linear')
+    ])
+    
+    # Train the autoencoder
+    model.compile(optimizer='adam', loss='mse')
+    model.fit(X, X, epochs=epochs, verbose=0)
+    
+    # Use the trained autoencoder to detect anomalies
+    X_pred = model.predict(X)
+    mse = np.mean(np.power(X - X_pred, 2), axis=1)
+    threshold = np.percentile(mse, 95)
+    anomalies = series.iloc[window_size:][mse >= threshold]
+    
+    return anomalies
