@@ -1,0 +1,22 @@
+Change Point Detection in Time Series using ChatGPT
+https://medium.com/@sztistvan/change-point-detection-in-time-series-using-chatgpt-22cc9172a130
+
+Here are some common approaches to anomaly detection
+https://medium.com/simform-engineering/anomaly-detection-with-unsupervised-machine-learning-3bcf4c431aff
+Statistical methods:
+Z-Score/Standard Score: This method measures how many standard deviations a data point is away from the mean. Points that fall far from the mean are considered anomalies.
+Percentiles: Identifying anomalies based on percentiles or quantiles, where values below or above a certain threshold are considered outliers.
+Machine learning algorithms:
+Isolation Forest: An ensemble learning method that builds a tree structure to isolate anomalies efficiently.
+One-Class SVM: A support vector machine (SVM) model trained to classify data points as normal or outliers.
+K-Nearest Neighbors (KNN): Assigns an anomaly score based on the distance to the K-nearest neighbors, with distant points being potential anomalies.
+Autoencoders: Neural networks designed to learn a compressed representation of data, where reconstruction error can be used to identify anomalies.
+Clustering methods:
+DBSCAN (Density-Based Spatial Clustering of Applications with Noise): Clusters data points based on their density, with points that do not belong to any cluster considered outliers.
+K-Means Clustering: Data points that do not belong to well-defined clusters may be considered anomalies.
+Time-series analysis:
+Moving Averages: Identifying anomalies based on deviations from the moving average or exponential moving average.
+Seasonal Decomposition: Decomposing a time series into its trend, seasonal, and residual components, with anomalies often detected in the residual component.
+Proximity-based approaches:
+Mahalanobis Distance: Measures the distance of data points from the center of the data distribution, considering correlations between features.
+Local Outlier Factor (LOF): Computes the local density deviation of a data point compared to its neighbors, identifying regions of different densities.
