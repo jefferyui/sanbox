@@ -88,6 +88,11 @@ plt.xlabel('Time')
 plt.ylabel('Value')
 plt.title('Bayesian Online Changepoint Detection')
 plt.legend()
+
+https://www.iese.fraunhofer.de/blog/change-point-detection/
 plt.show()
 
 https://github.com/y-bar/bocd/tree/master/notebook
+https://pro.arcgis.com/ja/pro-app/latest/tool-reference/space-time-pattern-mining/change-point-detection.htm
+
+https://zillow.github.io/luminaire/tutorial/dataprofiling.html
