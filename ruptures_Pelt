@@ -1,3 +1,19 @@
+
+import ruptures as rp
+import matplotlib.pyplot as plt
+n_samples, dim, sigma = 10000, 1, 2
+n_bkps = 4
+signal, bkps = rp.pw_constant(n_samples, dim, n_bkps, noise_std=sigma)
+# signal = signal[:,1]
+# rp.display(signal, bkps)
+# plt.show();
+
+pelt = rp.Pelt(jump = 5)
+bkps = pelt.fit_predict(signal, 50)
+rp.display(signal, bkps)
+plt.show();
+
+
 import ruptures as rp
 import matplotlib.pyplot as plt
 n_samples, dim, sigma = 10000, 3, 2
