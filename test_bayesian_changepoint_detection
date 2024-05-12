@@ -1,0 +1,57 @@
+# git clone https://github.com/hildensia/bayesian_changepoint_detection.git
+
+from __future__ import division
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn
+
+from bayesian_changepoint_detection.generate_data import generate_normal_time_series
+
+# %matplotlib inline
+# %load_ext autoreload
+# %autoreload 2
+
+partition, data = generate_normal_time_series(7, 50, 200)
+
+fig, ax = plt.subplots(figsize=[16, 12])
+ax.plot(data)
+
+from bayesian_changepoint_detection.priors import const_prior
+from functools import partial
+
+prior_function = partial(const_prior, p=1/(len(data) + 1))
+
+from bayesian_changepoint_detection.bayesian_models import offline_changepoint_detection
+import bayesian_changepoint_detection.offline_likelihoods as offline_ll
+
+Q, P, Pcp = offline_changepoint_detection(data, prior_function ,offline_ll.StudentT(),truncate=-40)
+
+fig, ax = plt.subplots(2, figsize=[18, 16], sharex=True)
+ax[0].plot(data[:])
+ax[1].plot(np.exp(Pcp).sum(0))
+
+from bayesian_changepoint_detection.hazard_functions import constant_hazard
+hazard_function = partial(constant_hazard, 250)
+
+from bayesian_changepoint_detection.bayesian_models import online_changepoint_detection
+import bayesian_changepoint_detection.online_likelihoods as online_ll
+
+R, maxes = online_changepoint_detection(
+    data, hazard_function, online_ll.StudentT(alpha=0.1, beta=.01, kappa=1, mu=0)
+)
+
+import matplotlib.cm as cm
+epsilon = 1e-7
+fig, ax = plt.subplots(3, figsize=[18, 16], sharex=True)
+ax[0].plot(data)
+sparsity = 5  # only plot every fifth data for faster display
+density_matrix = -np.log(R[0:-1:sparsity, 0:-1:sparsity]+epsilon)
+ax[1].pcolor(np.array(range(0, len(R[:,0]), sparsity)), 
+          np.array(range(0, len(R[:,0]), sparsity)), 
+          density_matrix, 
+          cmap=cm.Greys, vmin=0, vmax=density_matrix.max(),
+            shading='auto')
+Nw=10
+ax[2].plot(R[Nw,Nw:-1])
+
+partition, data = generate_normal_time_series(7, 50, 200)
