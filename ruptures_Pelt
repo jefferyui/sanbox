@@ -1,0 +1,32 @@
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import ruptures as rpt
+
+# # Generate a noisy piecewise constant signal
+# n_samples = 500
+# n_bkps = 4
+# sigma = 5
+# signal, true_bkps = rpt.pw_constant(n_samples, n_bkps, noise_std=sigma)
+
+# # Change point detection using the Dynp algorithm
+# algo = rpt.Dynp(model="l2", min_size=2, jump=5).fit(signal)
+# predicted_bkps = algo.predict(n_bkps=n_bkps)
+
+# # Display the results
+# rpt.show.display(signal, true_bkps, predicted_bkps, figsize=(10, 6))
+# plt.show()
+
+
+import ruptures as rp
+import matplotlib.pyplot as plt
+n_samples, dim, sigma = 10000, 3, 2
+n_bkps = 2
+signal, bkps = rp.pw_constant(n_samples, dim, n_bkps, noise_std=sigma)
+signal = signal[:,1]
+rp.display(signal, bkps)
+plt.show();
+
+pelt = rp.Pelt(jump = 20)
+bkps = pelt.fit_predict(signal, 50)
+rp.display(signal, bkps)
+plt.show();
