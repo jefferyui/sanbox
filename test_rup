@@ -66,3 +66,101 @@ def detect_anomalies_with_autoencoder(series, window_size=20, latent_dim=3, epoc
     anomalies = series.iloc[window_size:][mse >= threshold]
     
     return anomalies
+
+python example for detect anomalies with autoencoder and plot the result
+
+
+# import numpy as np
+# import pandas as pd
+# from tensorflow.keras.models import Model
+# from tensorflow.keras.layers import Input, Dense
+# from tensorflow.keras.optimizers import Adam
+# from sklearn.preprocessing import MinMaxScaler
+# from sklearn.model_selection import train_test_split
+
+# # Generate some dummy data
+# data = np.random.normal(loc=0, scale=1, size=(1000, 10))
+# # Introduce anomalies
+# data_with_anomalies = data.copy()
+# data_with_anomalies[:50] += np.random.normal(loc=10, scale=5, size=(50, 10))
+
+# # Normalize the data
+# scaler = MinMaxScaler()
+# data_normalized = scaler.fit_transform(data_with_anomalies)
+
+# # Split the data
+# X_train, X_test = train_test_split(data_normalized, test_size=0.2, random_state=42)
+
+# # Define the autoencoder architecture
+# input_dim = X_train.shape[1]
+# input_layer = Input(shape=(input_dim,))
+# encoded = Dense(6, activation='relu')(input_layer)
+# decoded = Dense(input_dim, activation='sigmoid')(encoded)
+
+# # Build the model
+# autoencoder = Model(inputs=input_layer, outputs=decoded)
+# autoencoder.compile(optimizer=Adam(lr=0.001), loss='mean_squared_error')
+
+# # Train the autoencoder
+# autoencoder.fit(X_train, X_train, epochs=50, batch_size=32, shuffle=True, validation_data=(X_test, X_test))
+
+# # Predict on the test set
+# reconstructions = autoencoder.predict(X_test)
+
+# # Calculate the mean squared error of the reconstructions
+# mse = np.mean(np.power(X_test - reconstructions, 2), axis=1)
+
+# # Define a threshold for anomaly detection
+# threshold = np.quantile(mse, 0.95)
+
+# # Detect anomalies
+# anomalies = mse > threshold
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+
+# Generate synthetic data (sine wave + anomaly)
+time = np.linspace(0, 10, 1000)
+normal_data = np.sin(time)  # Normal data (sine wave)
+anomaly_data = np.sin(time) + 0.5 * np.random.randn(1000)  # Anomaly (sudden jump)
+
+# Normalize the data
+scaler = MinMaxScaler()
+normal_data_normalized = scaler.fit_transform(normal_data.reshape(-1, 1))
+anomaly_data_normalized = scaler.transform(anomaly_data.reshape(-1, 1))
+
+# Build an autoencoder
+model = Sequential([
+    Dense(6, activation='relu', input_shape=(1,)),
+    Dense(1, activation='linear')
+])
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Train the autoencoder on normal data
+model.fit(normal_data_normalized, normal_data_normalized, epochs=50, batch_size=32, verbose=0)
+
+# Reconstruct the test data
+reconstructed_anomaly = model.predict(anomaly_data_normalized)
+
+# Calculate reconstruction errors
+reconstruction_errors = np.mean(np.square(anomaly_data_normalized - reconstructed_anomaly), axis=1)
+
+# Set a threshold for anomaly detection (e.g., 2 standard deviations)
+threshold = np.mean(reconstruction_errors) + 2 * np.std(reconstruction_errors)
+
+# Detect anomalies
+anomalies = reconstruction_errors > threshold
+
+# Plot the results
+plt.figure(figsize=(10, 6))
+plt.plot(time, normal_data, label='Normal Data', color='blue')
+plt.plot(time, anomaly_data, label='Anomaly Data', color='red')
+plt.scatter(time[anomalies], anomaly_data[anomalies], color='red', marker='x', label='Detected Anomalies')
+plt.xlabel('Time')
+plt.ylabel('Value')
+plt.title('Anomaly Detection using Autoencoder')
+plt.legend()
+plt.show()
