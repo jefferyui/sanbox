@@ -1,0 +1,7 @@
+https://medium.com/@jagota-arun/online-change-point-detection-in-time-series-a5ab1aab10a2
+Method 1: Offline CPD On A Sliding Window
+
+In this approach, we slide a window of a certain width over the time series at a regular cadence such as every time step. We then apply some offline CPD method to the window at any particular instance. Such as CUMSUM.
+
+
+https://jagota-arun.medium.com/cumsum-for-change-point-detection-in-time-series-4d076324e0bb
