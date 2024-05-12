@@ -12,3 +12,5 @@ df['date'] = pd.to_datetime(df['date'])  # 将日期列转换为 datetime 类型
 df['count_last_7_days'] = df['date'].apply(lambda x: ((df['date'] >= x - pd.Timedelta(days=7)) & (df['date'] <= x)).sum())
 
 print(df)
+
+http://www.claudiobellei.com/2016/11/15/changepoint-frequentist/
