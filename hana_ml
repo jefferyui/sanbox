@@ -1,0 +1,17 @@
+https://community.sap.com/t5/artificial-intelligence-and-machine-learning-blogs/efficient-online-bayesian-change-point-detection-with-a-memory-saving/ba-p/13561926
+
+https://help.sap.com/doc/62a5837b7ce74a92be118efa284c0100/2023_2_QRC/en-US/python_machine_learning_client_for_sap_hana_2.17.230808.pdf
+
+https://community.sap.com/t5/artificial-intelligence-and-machine-learning-blogs/bayesian-change-point-dectection-under-complex-time-series-in-python/ba-p/13505787
+
+
+https://community.sap.com/t5/artificial-intelligence-and-machine-learning-blogs/bayesian-change-point-dectection-under-complex-time-series-in-python/ba-p/13505787
+import hana_ml
+
+from hana_ml.algorithms.pal.tsa.changepoint import BCPD
+bcpd = BCPD(max_tcp=5, max_scp=0, random_seed=1)
+#tcp: location of trend change points
+#scp: location of seasonal change points
+#period: period of each seasonal segment
+#components: decomposition values of the time series
+tcp, scp, period, components = bcpd.fit_predict(data=mocking_df)
