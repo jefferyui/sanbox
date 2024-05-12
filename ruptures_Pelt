@@ -7,7 +7,7 @@ signal = signal[:,1]
 rp.display(signal, bkps)
 plt.show();
 
-pelt = rp.Pelt(jump = 10)
+pelt = rp.Pelt(jump = 5)
 bkps = pelt.fit_predict(signal, 50)
 rp.display(signal, bkps)
 plt.show();
