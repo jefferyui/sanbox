@@ -17,3 +17,19 @@ predicted_bkps = algo.predict(n_bkps=n_bkps)
 # Display the results
 rpt.show.display(signal, true_bkps, predicted_bkps, figsize=(10, 6))
 plt.show()
+
+
+https://www.crc.mines-paristech.fr/wp-content/uploads/2021/01/Notebook_Ruptures.html
+import ruptures as rp
+import matplotlib.pyplot as plt
+n_samples, dim, sigma = 10000, 3, 2
+n_bkps = 2
+signal, bkps = rp.pw_constant(n_samples, dim, n_bkps, noise_std=sigma)
+signal = signal[:,1]
+rp.display(signal, bkps)
+plt.show();
+
+pelt = rp.Pelt(jump = 20)
+bkps = pelt.fit_predict(signal, 50)
+rp.display(signal, bkps)
+plt.show();
