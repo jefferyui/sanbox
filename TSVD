@@ -1,0 +1,211 @@
+example with boston data set,use scikit learn do feature embedding and use MLPRegressor
+not use one-hot encoding as a simple form of embedding
+reduce dimensionality
+list more ways to do reduce dimensionality
+
+
+
+import numpy as np
+from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import TruncatedSVD
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_squared_error
+
+# Load the synthetic dataset (similar to Boston Housing)
+data = fetch_openml(name="house_prices", as_frame=True)
+X = data.data
+y = data.target
+
+# Assume 'MSZoning' is a categorical feature in this dataset
+categorical_feature = 'MSZoning'
+
+# Convert the categorical feature to numerical form
+encoder = OrdinalEncoder()
+X_encoded = encoder.fit_transform(X[[categorical_feature]])
+
+# Use TruncatedSVD to create an embedding of the categorical feature
+# TruncatedSVD is used here to reduce dimensionality while preserving variance
+n_components = 5  # Number of dimensions in the embedding space
+svd = TruncatedSVD(n_components=n_components, random_state=42)
+X_embedded = svd.fit_transform(X_encoded)
+
+# Drop the original categorical feature and concatenate the embedded version
+X = X.drop(columns=[categorical_feature])
+X = np.hstack((X.values, X_embedded))
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define and train the MLPRegressor
+mlp = MLPRegressor(hidden_layer_sizes=(100, 50), activation='relu', solver='adam', max_iter=500, random_state=42)
+mlp.fit(X_train, y_train)
+
+# Predict on the test set
+y_pred = mlp.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+print(f"Mean Squared Error: {mse}")
+
+
+import numpy as np
+from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.decomposition import PCA
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_squared_error
+
+# Load the synthetic dataset (similar to Boston Housing)
+data = fetch_openml(name="house_prices", as_frame=True)
+X = data.data
+y = data.target
+
+# Assume 'MSZoning' is a categorical feature in this dataset
+categorical_feature = 'MSZoning'
+
+# Convert the categorical feature to numerical form using Ordinal Encoding
+encoder = OrdinalEncoder()
+X_encoded = encoder.fit_transform(X[[categorical_feature]])
+
+# Use PCA to create an embedding of the categorical feature
+# PCA will reduce the dimensionality while preserving variance
+n_components = 3  # Number of dimensions in the embedding space
+pca = PCA(n_components=n_components)
+X_embedded = pca.fit_transform(X_encoded)
+
+# Drop the original categorical feature and concatenate the embedded version
+X = X.drop(columns=[categorical_feature])
+X = np.hstack((X.values, X_embedded))
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define and train the MLPRegressor
+mlp = MLPRegressor(hidden_layer_sizes=(100, 50), activation='relu', solver
+
+
+list more ways to do reduce dimensionality
+
+There are several techniques for dimensionality reduction, each with its unique strengths and applicable scenarios. Below are some common and advanced methods:
+
+1. Principal Component Analysis (PCA)
+Description: PCA is a linear method that transforms the data into a new coordinate system where the axes (principal components) capture the maximum variance in the data. It reduces the dimensionality by projecting data onto the first few principal components.
+Use Cases: Suitable for linear relationships and when you want to retain as much variance as possible in the data.
+2. t-Distributed Stochastic Neighbor Embedding (t-SNE)
+Description: t-SNE is a nonlinear dimensionality reduction technique particularly well-suited for visualization. It minimizes the divergence between distributions representing pairwise similarities in high-dimensional space and low-dimensional space.
+Use Cases: Primarily used for visualization of high-dimensional data (e.g., embeddings).
+3. Linear Discriminant Analysis (LDA)
+Description: LDA is a supervised method that finds the linear combinations of features that best separate two or more classes of data. It reduces dimensionality while maximizing class separability.
+Use Cases: Best used when you have labeled data and the goal is classification with reduced dimensions.
+4. Autoencoders
+Description: Autoencoders are neural networks used to learn efficient representations (embeddings) of data in an unsupervised manner. The middle layer (bottleneck) of the network represents the reduced-dimensionality data.
+Use Cases: Suitable for both linear and nonlinear data, especially when deep learning tools are available.
+5. Kernel PCA
+Description: An extension of PCA that uses kernel methods to project data into a higher-dimensional space where it can be linearly separated, before applying PCA.
+Use Cases: Useful for capturing nonlinear relationships in the data.
+6. Factor Analysis
+Description: Factor analysis models the variance in data as a combination of latent factors. It assumes that observed variables are influenced by hidden variables and reduces dimensionality by focusing on these factors.
+Use Cases: Often used in fields like psychology and social sciences to identify underlying relationships between variables.
+7. Independent Component Analysis (ICA)
+Description: ICA separates a multivariate signal into additive, independent non-Gaussian components. It is a generalization of PCA but focuses on maximizing statistical independence rather than variance.
+Use Cases: Commonly used in signal processing, such as separating mixed audio signals.
+8. Non-negative Matrix Factorization (NMF)
+Description: NMF is a factorization method where the data matrix is approximated as the product of two lower-rank matrices, with the constraint that all elements must be non-negative.
+Use Cases: Useful for cases where the data is non-negative and where interpretability is important, such as image or text data.
+9. UMAP (Uniform Manifold Approximation and Projection)
+Description: UMAP is a nonlinear dimensionality reduction technique that is similar to t-SNE but is generally faster and can preserve more of the global structure of the data.
+Use Cases: Useful for both visualization and clustering in high-dimensional spaces.
+10. Multidimensional Scaling (MDS)
+Description: MDS attempts to place each object in N-dimensional space such that the between-object distances are preserved as much as possible. It works by minimizing a loss function that represents the difference between distances in the original space and the reduced space.
+Use Cases: Useful for understanding the structure of complex datasets, often used in exploratory data analysis.
+11. Isomap
+Description: Isomap is a nonlinear dimensionality reduction technique that extends MDS by incorporating geodesic distances between points, preserving the global geometry of the data.
+Use Cases: Ideal for datasets with a manifold structure, where the data lies on or near a curved surface within a high-dimensional space.
+12. Random Projections
+Description: Random projections reduce dimensionality by projecting data onto a lower-dimensional subspace using a random matrix. It preserves distances between points relatively well due to the Johnson-Lindenstrauss lemma.
+Use Cases: Useful when speed is critical, and the data is high-dimensional.
+13. Gaussian Random Projection
+Description: A variant of random projections where the projection matrix is drawn from a Gaussian distribution. It is another application of the Johnson-Lindenstrauss lemma for dimensionality reduction.
+Use Cases: Effective for large-scale data when computational efficiency is required.
+14. Laplacian Eigenmaps
+Description: Laplacian Eigenmaps are a nonlinear technique that focuses on preserving local neighborhood information, using graph-based approaches to reduce dimensionality.
+Use Cases: Effective for data with a natural graph structure, such as social networks or sensor data.
+15. Dictionary Learning
+Description: Dictionary learning attempts to find a sparse representation of data by learning a dictionary of basis vectors. The data is then represented as a sparse linear combination of these vectors.
+Use Cases: Particularly useful for image processing and signal processing applications.
+These techniques offer a variety of approaches to dimensionality reduction, each with its strengths depending on the nature of the data and the specific problem you're trying to solve.
+
+
+use Autoencoders do again
+
+
+import numpy as np
+import pandas as pd
+from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_squared_error
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense
+
+# Load the synthetic dataset (similar to Boston Housing)
+data = fetch_openml(name="house_prices", as_frame=True)
+X = data.data
+y = data.target
+
+# Assume 'MSZoning' is a categorical feature in this dataset
+categorical_feature = 'MSZoning'
+
+# Encode the categorical feature using OrdinalEncoder
+encoder = OrdinalEncoder()
+X_encoded = encoder.fit_transform(X[[categorical_feature]])
+
+# Replace the original categorical column with the encoded version
+X = X.drop(columns=[categorical_feature])
+X[categorical_feature] = X_encoded
+
+# Standardize the features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# Define the autoencoder
+input_dim = X_train.shape[1]
+encoding_dim = 5  # Number of dimensions in the embedded space
+
+input_layer = Input(shape=(input_dim,))
+encoder = Dense(encoding_dim, activation='relu')(input_layer)
+decoder = Dense(input_dim, activation='linear')(encoder)
+
+autoencoder = Model(inputs=input_layer, outputs=decoder)
+autoencoder.compile(optimizer='adam', loss='mse')
+
+# Train the autoencoder
+autoencoder.fit(X_train, X_train, epochs=50, batch_size=32, shuffle=True, validation_split=0.2, verbose=0)
+
+# Use the encoder part to reduce the dimensionality of the input features
+encoder_model = Model(inputs=input_layer, outputs=encoder)
+X_train_encoded = encoder_model.predict(X_train)
+X_test_encoded = encoder_model.predict(X_test)
+
+# Train an MLPRegressor using the encoded features
+mlp = MLPRegressor(hidden_layer_sizes=(100, 50), activation='relu', solver='adam', max_iter=500, random_state=42)
+mlp.fit(X_train_encoded, y_train)
+
+# Predict on the test set
+y_pred = mlp.predict(X_test_encoded)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+print(f"Mean Squared Error: {mse}")
+
+
+
+
+
