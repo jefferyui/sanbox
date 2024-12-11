@@ -55,3 +55,77 @@ optimal_weights = model.output_dict['variable']
 max_score = -model.output_dict['function']  # 轉回最大化的分數
 print(f"Optimal weights: w1 = {optimal_weights[0]:.4f}, w2 = {optimal_weights[1]:.4f}, w3 = {optimal_weights[2]:.4f}")
 print(f"Maximum weighted score: {max_score:.4f}")
+
+
+
+
+###############3
+
+import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+# 創建測試資料
+np.random.seed(42)  # 固定隨機種子以便重現
+data = {
+    'weight': np.random.choice(['w1', 'w2', 'w3'], size=100),  # 隨機選擇 w1, w2, w3
+    'score': np.random.rand(100)  # 隨機生成 0 到 1 的分數
+}
+
+df = pd.DataFrame(data)
+
+# One-hot 編碼 weight 欄位
+df_encoded = pd.get_dummies(df['weight'], prefix='weight')
+X = df_encoded.values
+y = df['score'].values
+
+# 將資料分成訓練集和測試集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 定義目標函數
+# weights 是 [w1, w2, w3]
+def objective_function(weights):
+    train_predictions = np.dot(X_train, weights)
+    test_predictions = np.dot(X_test, weights)
+    
+    # 多目標融合: 訓練集的 MSE + 測試集的懲罰項 (針對過度擬合)
+    mse_train = mean_squared_error(y_train, train_predictions)
+    mse_test_penalty = mean_squared_error(y_test, test_predictions) * 10
+    
+    penalty = 1000 * abs(sum(weights) - 1)  # 確保 w1 + w2 + w3 = 1
+    return mse_train + mse_test_penalty + penalty  # 最小化損失
+
+# 定義邊界: 每個權重在 0 到 1 之間
+varbound = np.array([[0, 1], [0, 1], [0, 1]])
+
+# 使用基因演算法 (GA) 的參數
+from geneticalgorithm import geneticalgorithm as ga
+algorithm_param = {
+    'max_num_iteration': 500,
+    'population_size': 100,
+    'mutation_probability': 0.1,
+    'elit_ratio': 0.01,
+    'crossover_probability': 0.5,
+    'parents_portion': 0.3,
+    'crossover_type': 'uniform',
+    'max_iteration_without_improv': None
+}
+
+# 初始化基因演算法模型
+model = ga(
+    function=objective_function,
+    dimension=3,
+    variable_type='real',
+    variable_boundaries=varbound,
+    algorithm_parameters=algorithm_param
+)
+
+# 執行基因演算法
+model.run()
+
+# 最佳化結果
+optimal_weights = model.output_dict['variable']
+mse_score = model.output_dict['function']
+print(f"Optimal weights: w1 = {optimal_weights[0]:.4f}, w2 = {optimal_weights[1]:.4f}, w3 = {optimal_weights[2]:.4f}")
+print(f"Final MSE score: {mse_score:.4f}")
