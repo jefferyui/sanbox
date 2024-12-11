@@ -1,0 +1,57 @@
+import pandas as pd
+import numpy as np
+from geneticalgorithm import geneticalgorithm as ga
+
+# 創建測試資料
+np.random.seed(42)  # 固定隨機種子以便重現
+data = {
+    'weight': np.random.choice(['w1', 'w2', 'w3'], size=100),  # 隨機選擇 w1, w2, w3
+    'score': np.random.rand(100)  # 隨機生成 0 到 1 的分數
+}
+
+df = pd.DataFrame(data)
+
+# One-hot 編碼 weight 欄位
+df_encoded = pd.get_dummies(df['weight'], prefix='weight')
+X = df_encoded.values
+y = df['score'].values
+
+# 定義目標函數
+# weights 是 [w1, w2, w3]
+def objective_function(weights):
+    predictions = np.dot(X, weights)
+    penalty = 1000 * abs(sum(weights) - 1)  # 確保 w1 + w2 + w3 = 1
+    return -np.sum(predictions) + penalty  # 最大化總分轉為最小化，並加入懲罰項
+
+# 定義邊界: 每個權重在 0 到 1 之間
+varbound = np.array([[0, 1], [0, 1], [0, 1]])
+
+# 設定基因演算法的參數
+algorithm_param = {
+    'max_num_iteration': 500,
+    'population_size': 100,
+    'mutation_probability': 0.1,
+    'elit_ratio': 0.01,
+    'crossover_probability': 0.5,
+    'parents_portion': 0.3,
+    'crossover_type': 'uniform',
+    'max_iteration_without_improv': None
+}
+
+# 初始化基因演算法模型
+model = ga(
+    function=objective_function,
+    dimension=3,
+    variable_type='real',
+    variable_boundaries=varbound,
+    algorithm_parameters=algorithm_param
+)
+
+# 執行基因演算法
+model.run()
+
+# 最佳化結果
+optimal_weights = model.output_dict['variable']
+max_score = -model.output_dict['function']  # 轉回最大化的分數
+print(f"Optimal weights: w1 = {optimal_weights[0]:.4f}, w2 = {optimal_weights[1]:.4f}, w3 = {optimal_weights[2]:.4f}")
+print(f"Maximum weighted score: {max_score:.4f}")
