@@ -1,0 +1,117 @@
+import pandas as pd
+import torch
+import torch.nn as nn
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+
+# 加载 SNS Titanic 数据集
+import seaborn as sns
+titanic = sns.load_dataset("titanic")
+
+# 数据预处理
+titanic = titanic.drop(['deck', 'embark_town', 'alive', 'class', 'who', 'adult_male'], axis=1)
+titanic = titanic.dropna()  # 删除缺失值
+
+# 编码类别特征
+cat_features = ['sex', 'embarked']
+num_features = ['age', 'fare', 'sibsp', 'parch']
+
+label_encoders = {col: LabelEncoder() for col in cat_features}
+for col in cat_features:
+    titanic[col] = label_encoders[col].fit_transform(titanic[col])
+
+scaler = StandardScaler()
+titanic[num_features] = scaler.fit_transform(titanic[num_features])
+
+# 提取输入和标签
+X = titanic[cat_features + num_features]
+y = titanic['survived']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 转换为 PyTorch 张量
+X_train = torch.tensor(X_train.values, dtype=torch.float32)
+X_test = torch.tensor(X_test.values, dtype=torch.float32)
+y_train = torch.tensor(y_train.values, dtype=torch.long)
+y_test = torch.tensor(y_test.values, dtype=torch.long)
+
+# 嵌入层和 Transformer Block 定义
+class TitanicModel(nn.Module):
+    def __init__(self, num_embeddings, embedding_dims, num_features):
+        super(TitanicModel, self).__init__()
+        
+        # 嵌入层
+        self.embeddings = nn.ModuleList([
+            nn.Embedding(num_embeddings[i], embedding_dims[i]) 
+            for i in range(len(num_embeddings))
+        ])
+        
+        # Transformer Block
+        self.transformer = nn.Transformer(
+            d_model=sum(embedding_dims) + len(num_features), 
+            nhead=4, 
+            num_encoder_layers=2, 
+            dim_feedforward=128,
+            dropout=0.1,
+            activation="relu"
+        )
+        
+        # 全连接层
+        self.fc = nn.Sequential(
+            nn.Linear(sum(embedding_dims) + len(num_features), 64),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(64, 2)  # 二分类问题
+        )
+
+    def forward(self, x_cat, x_num):
+        # 嵌入层输出
+        embeds = [embedding(x_cat[:, i]) for i, embedding in enumerate(self.embeddings)]
+        embeds = torch.cat(embeds, dim=1)
+        
+        # 合并嵌入和数值特征
+        x = torch.cat([embeds, x_num], dim=1)
+        x = x.unsqueeze(0)  # 添加 batch 维度以适应 Transformer 输入格式
+        
+        # Transformer Block
+        x = self.transformer(x, x)  # 自注意力机制
+        x = x.squeeze(0)  # 去掉 batch 维度
+        
+        # 全连接层
+        output = self.fc(x)
+        return output
+
+# 定义嵌入层维度
+num_embeddings = [len(label_encoders[col].classes_) for col in cat_features]
+embedding_dims = [4] * len(cat_features)  # 每个嵌入层维度
+
+# 初始化模型
+model = TitanicModel(num_embeddings, embedding_dims, num_features=num_features)
+
+# 损失函数和优化器
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+# 训练模型
+epochs = 500
+for epoch in range(epochs):
+    model.train()
+    optimizer.zero_grad()
+    x_cat = X_train[:, :len(cat_features)].long()
+    x_num = X_train[:, len(cat_features):]
+    outputs = model(x_cat, x_num)
+    loss = criterion(outputs, y_train)
+    loss.backward()
+    optimizer.step()
+    
+    print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+
+# 测试模型
+model.eval()
+with torch.no_grad():
+    x_cat = X_test[:, :len(cat_features)].long()
+    x_num = X_test[:, len(cat_features):]
+    outputs = model(x_cat, x_num)
+    predictions = torch.argmax(outputs, dim=1)
+    accuracy = (predictions == y_test).sum().item() / len(y_test)
+    print(f"Test Accuracy: {accuracy:.4f}")
