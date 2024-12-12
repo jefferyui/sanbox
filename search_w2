@@ -1,0 +1,123 @@
+
+import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sko.PSO import PSO
+from sko.GA import GA
+from sko.DE import DE
+from sko.SA import SA
+from sko.ACA import ACA_TSP
+from sko.IA import IA_TSP
+from sko.AFSA import AFSA
+
+# 創建測試資料
+np.random.seed(42)  # 固定隨機種子以便重現
+data = {
+    'weight': np.random.choice(['w1', 'w2', 'w3'], size=100),  # 隨機選擇 w1, w2, w3
+    'score': np.random.rand(100),  # 隨機生成 0 到 1 的分數
+    'target': np.random.choice(['target', 'non-target'], size=100)  # 隨機生成目標與非目標
+}
+
+df = pd.DataFrame(data)
+
+# One-hot 編碼 weight 欄位
+df_encoded = pd.get_dummies(df['weight'], prefix='weight')
+
+def objective_function(weights):
+    # 計算每列的加權分數
+    df['weighted_score'] = (weights[0] * df_encoded['weight_w1'] +
+                            weights[1] * df_encoded['weight_w2'] +
+                            weights[2] * df_encoded['weight_w3']) * df['score']
+
+    target_sum = df[df['target'] == 'target']['weighted_score'].sum()
+    non_target_sum = df[df['target'] == 'non-target']['weighted_score'].sum()
+
+    gap = target_sum - non_target_sum  # 目標與非目標加總差距
+    penalty = 1000 * abs(sum(weights) - 1)  # 確保 w1 + w2 + w3 = 1
+    return -gap + penalty  # 最大化 gap
+
+# 設定共享參數
+bounds = [(0, 1), (0, 1), (0, 1)]
+n_dim = 3  # 權重維度
+
+# 使用粒子群演算法 (PSO)
+pso = PSO(
+    func=objective_function,
+    n_dim=n_dim,
+    pop=50,
+    max_iter=200,
+    lb=[0, 0, 0],
+    ub=[1, 1, 1],
+    w=0.8,
+    c1=0.5,
+    c2=0.5
+)
+pso.run()
+pso_result = (pso.gbest_x, pso.gbest_y)
+
+# 使用基因演算法 (GA)
+ga = GA(
+    func=objective_function,
+    n_dim=n_dim,
+    size_pop=50,
+    max_iter=200,
+    prob_mut=0.1,
+    lb=[0, 0, 0],
+    ub=[1, 1, 1]
+)
+ga_result = ga.run()
+
+# 使用差分進化算法 (DE)
+de = DE(
+    func=objective_function,
+    n_dim=n_dim,
+    size_pop=50,
+    max_iter=200,
+    lb=[0, 0, 0],
+    ub=[1, 1, 1]
+)
+de_result = de.run()
+
+# 使用模擬退火算法 (SA)
+sa = SA(
+    func=objective_function,
+    x0=np.random.rand(n_dim),
+    T_max=100,
+    T_min=1e-3,
+    L=300,
+)
+sa_result = sa.run()
+
+# # 使用螞蟻演算法 (ACA_TSP)
+# def aca_objective_function(weights):
+#     return objective_function(weights)
+
+# aca = ACA_TSP(func=aca_objective_function, n_dim=n_dim, size_pop=50, max_iter=200, distance_matrix=None)
+# aca_result = aca.run()
+
+# # 使用免疫演算法 (IA_TSP)
+# ia = IA_TSP(func=objective_function, n_dim=n_dim, size_pop=50, max_iter=200)
+# ia_result = ia.run()
+
+# # 使用人工魚群演算法 (AFSA)
+# afsa = AFSA(func=objective_function, n_dim=n_dim, size_pop=50, max_iter=200, step=0.5, visual=1, q=0.98)
+# afsa_result = afsa.run()
+
+# 比較結果
+results = {
+    "PSO": pso_result,
+    "GA": (ga_result[0], ga_result[1]),
+    "DE": (de_result[0], de_result[1]),
+    "SA": (sa_result[0], sa_result[1]),
+    # "ACA_TSP": (aca_result[0], aca_result[1]),
+    # "IA_TSP": (ia_result[0], ia_result[1]),
+    # "AFSA": (afsa_result[0], afsa_result[1])
+}
+
+total_loss = 0
+for method, (weights, loss) in results.items():
+    print(f"{method} - Optimal weights: {weights}, Final loss: {loss}")
+    total_loss += loss
+
+print(f"\nTotal combined loss: {total_loss}")
