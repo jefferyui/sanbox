@@ -1,0 +1,142 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
+import seaborn as sns
+
+# 加載 Titanic 資料集
+data = sns.load_dataset('titanic')
+data = data.drop(['alive', 'embark_town', 'class', 'who', 'adult_male', 'deck'], axis=1)
+
+# 填補缺失值
+imputer_cat = SimpleImputer(strategy='most_frequent')
+imputer_num = SimpleImputer(strategy='mean')
+cat_features = ['sex', 'embarked', 'alone']
+num_features = ['age', 'fare', 'sibsp', 'parch']
+target = 'survived'
+data[cat_features] = imputer_cat.fit_transform(data[cat_features])
+data[num_features] = imputer_num.fit_transform(data[num_features])
+
+# 類別型特徵編碼
+label_encoders = {}
+for col in cat_features:
+    le = LabelEncoder()
+    data[col] = le.fit_transform(data[col])
+    label_encoders[col] = le
+
+# 分割特徵與目標
+X = data[cat_features + num_features].values
+y = data[target].values
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# 數據加載器
+def create_dataloader(X, y, batch_size=32, shuffle=True):
+    dataset = TensorDataset(torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32))
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+
+train_loader = create_dataloader(X_train, y_train, batch_size=32)
+test_loader = create_dataloader(X_test, y_test, batch_size=32, shuffle=False)
+
+# Transformer 模型
+class TransformerRegressor(nn.Module):
+    def __init__(self, num_embeddings, embedding_dims, num_features, nhead=4, num_layers=2):
+        super(TransformerRegressor, self).__init__()
+        
+        # 嵌入層
+        self.embeddings = nn.ModuleList([
+            nn.Embedding(num_embeddings[i], embedding_dims[i])
+            for i in range(len(num_embeddings))
+        ])
+        
+        # 計算 d_model 並調整數值特徵輸出維度
+        embedding_dim_total = sum(embedding_dims)
+        num_feature_dim = 32
+        d_model = embedding_dim_total + num_feature_dim
+        if d_model % nhead != 0:
+            d_model = (d_model // nhead + 1) * nhead
+            num_feature_dim = d_model - embedding_dim_total
+        
+        # 數值特徵處理層
+        self.fc_num = nn.Linear(num_features, num_feature_dim)
+        
+        # Transformer Block
+        self.transformer = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=256,
+                dropout=0.2,
+                activation='relu'
+            ),
+            num_layers=num_layers
+        )
+        
+        # 預測層
+        self.fc = nn.Sequential(
+            nn.Linear(d_model, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)  # 回歸輸出
+        )
+
+    def forward(self, x_cat, x_num):
+        # 嵌入層處理離散特徵
+        embeds = [emb(x_cat[:, i].long()) for i, emb in enumerate(self.embeddings)]
+        embeds = torch.cat(embeds, dim=1)  # (batch_size, embedding_dim_total)
+        
+        # 處理數值特徵
+        x_num = self.fc_num(x_num)  # (batch_size, num_feature_dim)
+        
+        # 合併嵌入與數值特徵
+        x = torch.cat([embeds, x_num], dim=1)  # (batch_size, d_model)
+        
+        # 增加序列維度以適配 Transformer
+        x = x.unsqueeze(1)  # (batch_size, seq_len=1, d_model)
+        
+        # Transformer 編碼
+        x = self.transformer(x)  # (batch_size, seq_len=1, d_model)
+        x = x.squeeze(1)  # 移除 seq_len 維度，恢復 (batch_size, d_model)
+        
+        # 全連接層輸出
+        output = self.fc(x)  # (batch_size, 1)
+        return output
+
+# 初始化模型
+num_embeddings = [len(label_encoders[col].classes_) for col in cat_features]
+embedding_dims = [min(50, int(len(label_encoders[col].classes_) ** 0.5)) for col in cat_features]
+num_features = len(num_features)
+model = TransformerRegressor(num_embeddings, embedding_dims, num_features)
+criterion = nn.MSELoss()  # 目標假設為回歸預測，可更改為分類損失
+optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+
+# 訓練模型
+num_epochs = 30
+for epoch in range(num_epochs):
+    model.train()
+    train_loss = 0.0
+    for x, y in train_loader:
+        x_cat, x_num = x[:, :len(cat_features)].long(), x[:, len(cat_features):]
+        y = y.view(-1, 1)
+        optimizer.zero_grad()
+        outputs = model(x_cat, x_num)
+        loss = criterion(outputs, y)
+        loss.backward()
+        optimizer.step()
+        train_loss += loss.item() * x.size(0)
+    train_loss /= len(train_loader.dataset)
+    print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}")
+
+# 測試集評估
+model.eval()
+test_loss = 0.0
+with torch.no_grad():
+    for x, y in test_loader:
+        x_cat, x_num = x[:, :len(cat_features)].long(), x[:, len(cat_features):]
+        y = y.view(-1, 1)
+        outputs = model(x_cat, x_num)
+        loss = criterion(outputs, y)
+        test_loss += loss.item() * x.size(0)
+test_loss /= len(test_loader.dataset)
+print(f"Test Loss: {test_loss:.4f}")
