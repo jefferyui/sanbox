@@ -1,0 +1,153 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+from sklearn.preprocessing import OneHotEncoder
+
+# 創建資料集
+data = []
+tools = ["Tool1", "Tool2", "Tool3", "Tool4", "Tool5"]
+
+for i in range(200):
+    recipe = np.random.choice(["Recipe A", "Recipe B", "Recipe C"])
+    tool = np.random.choice(tools)
+    if tool == "Tool1":
+        value = np.random.normal(5, 0.5)  # 平均值較高
+    elif tool == "Tool3":
+        value = np.random.normal(-3, 0.5)  # 平均值較低
+    else:
+        value = np.random.normal(0, 0.5)  # 其他工具接近 0
+    data.append({"recipe": recipe, "tool": tool, "value": value})
+
+# 轉換為 DataFrame
+df = pd.DataFrame(data)
+
+# 將類別特徇轉換為數值特徇
+encoder = OneHotEncoder()
+tool_encoded = encoder.fit_transform(df[["tool"]]).toarray()
+recipe_encoded = encoder.fit_transform(df[["recipe"]]).toarray()
+
+# 合併數值特徇
+features = np.hstack([tool_encoded, recipe_encoded, df[["value"]].values])
+
+# 轉換為 PyTorch 張量
+features_tensor = torch.tensor(features, dtype=torch.float32)
+
+# 定義 VAE 模型
+class VAE(nn.Module):
+    def __init__(self, input_dim, hidden_dim, latent_dim):
+        super(VAE, self).__init__()
+        # 編碼器
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc21 = nn.Linear(hidden_dim, latent_dim)  # mean
+        self.fc22 = nn.Linear(hidden_dim, latent_dim)  # log_var
+        # 解碼器
+        self.fc3 = nn.Linear(latent_dim, hidden_dim)
+        self.fc4 = nn.Linear(hidden_dim, input_dim)
+
+    def encode(self, x):
+        h1 = torch.relu(self.fc1(x))
+        return self.fc21(h1), self.fc22(h1)
+
+    def reparameterize(self, mu, log_var):
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def decode(self, z):
+        h3 = torch.relu(self.fc3(z))
+        return torch.sigmoid(self.fc4(h3))  # Sigmoid to restrict values between 0 and 1
+
+    def forward(self, x):
+        mu, log_var = self.encode(x)
+        z = self.reparameterize(mu, log_var)
+        return self.decode(z), mu, log_var
+
+# 訓練 VAE 模型
+def train_vae(model, data, epochs=100, batch_size=32, lr=1e-3):
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    loss_fn = nn.MSELoss(reduction='sum')  # Use MSELoss instead of BCELoss
+
+    model.train()
+    for epoch in range(epochs):
+        permutation = torch.randperm(data.size(0))
+        for i in range(0, data.size(0), batch_size):
+            indices = permutation[i:i+batch_size]
+            batch = data[indices]
+
+            optimizer.zero_grad()
+
+            reconstructed_batch, mu, log_var = model(batch)
+            loss = loss_fn(reconstructed_batch, batch)
+            loss.backward()
+            optimizer.step()
+
+        if epoch % 10 == 0:
+            print(f"Epoch [{epoch}/{epochs}], Loss: {loss.item() / batch_size:.4f}")
+
+# 定義 VAE 模型
+input_dim = features_tensor.shape[1]
+hidden_dim = 128
+latent_dim = 2
+
+vae = VAE(input_dim, hidden_dim, latent_dim)
+
+# 訓練模型
+train_vae(vae, features_tensor, epochs=100, batch_size=32, lr=1e-3)
+
+# 使用 VAE 編碼器提取潛在向量
+vae.eval()
+with torch.no_grad():
+    mu, log_var = vae.encode(features_tensor)
+    latent_vectors = vae.reparameterize(mu, log_var)
+
+# 使用 t-SNE 進行降維
+tsne = TSNE(n_components=2, random_state=42)
+latent_vectors_2d = tsne.fit_transform(latent_vectors)
+
+# 可視化 t-SNE + VAE 結果
+plt.figure(figsize=(8, 8))
+tool_labels = df["tool"].values
+tools_unique = np.unique(tool_labels)
+
+# 繪製不同工具的點
+for tool in tools_unique:
+    mask = tool_labels == tool
+    plt.scatter(latent_vectors_2d[mask, 0], latent_vectors_2d[mask, 1], label=tool, s=100, alpha=0.7)
+
+plt.title("Tool Distribution with t-SNE + VAE", fontsize=16)
+plt.xlabel("Dimension 1")
+plt.ylabel("Dimension 2")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# 找出第一個維度上（dimension 1）超過正負 10 的數據點
+outlier_indices = np.abs(latent_vectors_2d[:, 0]) > 10  # dimension 1 > 10 或 < -10
+
+# 根據條件篩選出異常點對應的機台
+anomalous_machines = df[outlier_indices]['tool'].unique()  # 假設“tool”是機台名稱
+print("異常機台 (dimension 1 差異超過正負 10):", anomalous_machines)
+
+# 可視化 t-SNE 2D 結果，標註異常點
+plt.figure(figsize=(8, 8))
+tool_labels = df["tool"].values
+tools_unique = np.unique(tool_labels)
+
+# 繪製不同工具的點
+for tool in tools_unique:
+    mask = tool_labels == tool
+    plt.scatter(latent_vectors_2d[mask, 0], latent_vectors_2d[mask, 1], label=tool, s=100, alpha=0.7)
+
+# 標註異常點
+plt.scatter(latent_vectors_2d[outlier_indices, 0], latent_vectors_2d[outlier_indices, 1], color='red', label='Anomalous Tool (Dim 1 > 10)', s=100, marker='x')
+
+plt.title("Anomaly Detection with t-SNE + VAE", fontsize=16)
+plt.xlabel("Dimension 1")
+plt.ylabel("Dimension 2")
+plt.legend()
+plt.grid(True)
+plt.show()
