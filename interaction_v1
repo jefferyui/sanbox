@@ -189,3 +189,93 @@ h_stat_df = h_stat_df.sort_values(by="h_statistic", ascending=False)
 # ===============================
 print("Top feature pairs by H-Statistic (interaction strength):")
 print(h_stat_df.head(10))
+
+
+
+
+
+
+############
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+import shap
+import matplotlib.pyplot as plt
+
+# ===============================
+# 1. 生成含交互作用的数 据集
+# ===============================
+np.random.seed(42)
+n_samples = 1000
+n_features = 10
+
+# 构造数据集，特征命名为 f1, f2, …, f10
+X = pd.DataFrame(
+    np.random.randn(n_samples, n_features),
+    columns=[f"f{i}" for i in range(1, n_features + 1)]
+)
+
+# 构造目标变量 y，设计交互作用（例如 f1 与 f3 存在明显交互作用）
+noise = np.random.randn(n_samples) * 0.1
+y = (2 * X['f1'] + 3 * X['f2'] +
+     5 * (X['f1'] * X['f3']) + 
+     4 * (X['f2'] * X['f4']) + 
+     5 * (X['f5'] * X['f6']) + noise)
+
+# ===============================
+# 2. 使用 XGBoost 训练模型
+# ===============================
+# 构造 XGBoost DMatrix 数据格式
+dtrain = xgb.DMatrix(X, label=y)
+
+params = {
+    "objective": "reg:squarederror",
+    "seed": 42,
+    "max_depth": 4,
+    "eta": 0.1
+}
+num_round = 100
+model = xgb.train(params, dtrain, num_round)
+
+# ===============================
+# 3. 利用 SHAP 的 TreeExplainer 计算交互作用值
+# ===============================
+# 创建 SHAP TreeExplainer 对象
+explainer = shap.TreeExplainer(model)
+
+# 计算交互作用值，返回一个形状为 (n_samples, n_features, n_features) 的数组
+# 对于回归问题，该数组 [i, j] 表示样本在特征 i 和 j 之间的交互贡献
+shap_interaction_values = explainer.shap_interaction_values(X)
+
+# ===============================
+# 4. 聚合每对特征的交互作用强度
+# ===============================
+# 对所有样本取绝对值后求平均，得到每个特征对的平均交互作用强度
+mean_interactions = np.abs(shap_interaction_values).mean(axis=0)  # shape: (n_features, n_features)
+
+# 只考虑上三角（避免重复，且对角线为单一效应，不考虑交互）
+interaction_dict = {}
+for i in range(n_features):
+    for j in range(i+1, n_features):
+        # 特征 i 与特征 j 的交互作用平均值
+        pair = (f"f{i+1}", f"f{j+1}")
+        interaction_dict[pair] = mean_interactions[i, j]
+
+# 转换为 DataFrame 并按交互作用从高到低排序
+interaction_df = pd.DataFrame(list(interaction_dict.items()), columns=["Feature_Pair", "Mean_Interaction"])
+interaction_df = interaction_df.sort_values(by="Mean_Interaction", ascending=False)
+
+print("Top feature interactions by mean absolute SHAP interaction value:")
+print(interaction_df.head(10))
+
+# ===============================
+# 5. 可视化结果
+# ===============================
+plt.figure(figsize=(10,6))
+labels = [" * ".join(pair) for pair in interaction_df["Feature_Pair"].head(10)]
+plt.barh(labels, interaction_df["Mean_Interaction"].head(10))
+plt.xlabel("Mean Absolute SHAP Interaction Value")
+plt.title("Top 10 Feature Interactions")
+plt.gca().invert_yaxis()  # 最高的在最上方
+plt.show()
+
