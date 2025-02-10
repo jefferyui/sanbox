@@ -1,0 +1,191 @@
+from joblib import Parallel, delayed
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+from itertools import combinations
+from sklearn.feature_selection import mutual_info_regression
+import itertools
+import matplotlib.pyplot as plt
+
+# ===============================
+# 1. 生成含交互作用的數據集
+# ===============================
+np.random.seed(42)
+n_samples = 1000
+n_features = 10
+
+# 生成隨機數據
+X = pd.DataFrame(
+    np.random.randn(n_samples, n_features),
+    columns=[f"f{i}" for i in range(1, n_features + 1)]
+)
+
+# 設計目標變數 y，包含交互作用
+noise = np.random.randn(n_samples) * 0.1
+# y = (2 * X['f1'] + 3 * X['f2'] + 
+#      5 * (X['f1'] * X['f3']) + 
+#      4 * (X['f2'] * X['f4']) + 
+#      5 * (X['f5'] * X['f6']) + noise)
+y = (2 * X['f1'] + 3 * X['f2'] + 
+     5 * (X['f1'] * X['f3']) + 
+     4 * (X['f2'] * X['f4']) + 
+     5 * (X['f2'] *X['f5'] * X['f6']) + noise)
+
+
+# 定义计算每个特征组合互信息的函数
+def compute_mi_score(combo, X, y):
+    product_feature = X[list(combo)].prod(axis=1)
+    mi_score = mutual_info_regression(product_feature.values.reshape(-1, 1), y, random_state=42, n_jobs=1)[0]
+    return combo, mi_score
+
+# 使用 Parallel 和 delayed 来并行化处理
+interaction_scores = {}
+
+# k 为组合大小，范围从 2 到 5
+k_max = 5
+for k in range(2, k_max):
+    # 并行化计算每个特征组合的互信息分数
+    results = Parallel(n_jobs=-1)(delayed(compute_mi_score)(combo, X, y) for combo in itertools.combinations(X.columns, k))
+    
+    # 将结果存入字典
+    for combo, mi_score in results:
+        interaction_scores[combo] = mi_score
+
+# 将结果整理成 DataFrame，按 MI 分数排序
+interaction_df = pd.DataFrame({
+    'Feature_Combination': list(interaction_scores.keys()),
+    'MI_Score': list(interaction_scores.values())
+})
+
+interaction_df = interaction_df.sort_values(by='MI_Score', ascending=False)
+
+print("Top 20 feature interactions (combinations of 2 to 5 features) based on MI:")
+print(interaction_df.head(20))
+
+# --- 3. 可视化前 10 个交互作用组合 ---
+plt.figure(figsize=(10, 6))
+top10 = interaction_df.head(10)
+# 将 tuple 转换为 "f1 * f2 * ..." 格式的字符串
+labels = [" * ".join(combo) for combo in top10['Feature_Combination']]
+plt.barh(labels, top10['MI_Score'])
+plt.xlabel("Mutual Information Score")
+plt.title("Top 10 Feature Interactions (2 to 5 features)")
+plt.gca().invert_yaxis()  # 最高的在最上方
+plt.show()
+
+# 计算 Q1, Q3 和 IQR
+Q1 = interaction_df["MI_Score"].quantile(0.25)
+Q3 = interaction_df["MI_Score"].quantile(0.75)
+IQR = Q3 - Q1
+
+# 设定异常值的标准：MI_score > Q3 + 1.5 * IQR 或 MI_score < Q1 - 1.5 * IQR
+threshold_upper = Q3 + 1.5 * IQR
+threshold_lower = Q1 - 1.5 * IQR
+
+# 选出异常高的 MI 值
+abnormal_interactions = interaction_df[interaction_df["MI_Score"] > threshold_upper]
+
+print("Abnormal high MI scores:")
+print(abnormal_interactions)
+
+
+##################
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+# 轉換為 DataFrame，確保列名匹配
+df = X.copy()
+df['y'] = y
+
+# 確保正確使用特徵名稱
+formula = 'y ~ f1 + f2 + f1:f2'  # f1 和 f2 交互作用
+model = smf.ols(formula, data=df).fit()
+
+# 顯示回歸結果
+print(model.summary())
+
+###############
+
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+from itertools import combinations
+
+# ===============================
+# 1. 生成含交互作用的數據集
+# ===============================
+np.random.seed(42)
+n_samples = 1000
+n_features = 10
+
+# 生成隨機數據
+X = pd.DataFrame(
+    np.random.randn(n_samples, n_features),
+    columns=[f"f{i}" for i in range(1, n_features + 1)]
+)
+
+# 設計目標變數 y，包含交互作用
+noise = np.random.randn(n_samples) * 0.1
+y = (2 * X['f1'] + 3 * X['f2'] + 
+     5 * (X['f1'] * X['f3']) + 
+     4 * (X['f2'] * X['f4']) + 
+     5 * (X['f5'] * X['f6']) + noise)
+
+# ===============================
+# 2. 使用 XGBoost 訓練完整模型
+# ===============================
+dtrain = xgb.DMatrix(X, label=y)
+
+params = {
+    "objective": "reg:squarederror",
+    "eval_metric": "rmse",
+    "seed": 42,
+    "max_depth": 6,
+    "eta": 0.1
+}
+num_round = 100
+bst_full = xgb.train(params, dtrain, num_round)
+
+# 預測完整模型的輸出
+y_pred_full = bst_full.predict(dtrain)
+
+# ===============================
+# 3. 計算 H-Statistic
+# ===============================
+def compute_h_statistic(X, y_pred_full):
+    h_scores = {}
+    
+    for f1, f2 in combinations(X.columns, 2):
+        # 只使用 f1 訓練模型
+        dtrain_f1 = xgb.DMatrix(X[[f1]], label=y)
+        bst_f1 = xgb.train(params, dtrain_f1, num_round)
+        y_pred_f1 = bst_f1.predict(dtrain_f1)
+        
+        # 只使用 f2 訓練模型
+        dtrain_f2 = xgb.DMatrix(X[[f2]], label=y)
+        bst_f2 = xgb.train(params, dtrain_f2, num_round)
+        y_pred_f2 = bst_f2.predict(dtrain_f2)
+        
+        # 計算 H² 指標
+        numerator = np.sum((y_pred_full - y_pred_f1 - y_pred_f2) ** 2)
+        denominator = np.sum(y_pred_full ** 2)
+        
+        h_score = np.sqrt(numerator / denominator) if denominator != 0 else 0
+        h_scores[(f1, f2)] = h_score
+    
+    return h_scores
+
+# 計算 H-Statistic
+h_scores = compute_h_statistic(X, y_pred_full)
+
+# 整理成 DataFrame 並排序
+h_stat_df = pd.DataFrame([
+    {"feature_pair": pair, "h_statistic": score} for pair, score in h_scores.items()
+])
+h_stat_df = h_stat_df.sort_values(by="h_statistic", ascending=False)
+
+# ===============================
+# 4. 輸出交互作用組
+# ===============================
+print("Top feature pairs by H-Statistic (interaction strength):")
+print(h_stat_df.head(10))
