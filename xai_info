@@ -45,3 +45,80 @@ GitHub 星数与更新时间：数据截至 2023 年 10 月，星数标记为近
 深度学习模型：尝试 Integrated Gradients、Saliency Maps。
 
 生成可操作建议：Counterfactual Explanations、Anchors。
+
+
+方法名稱 (英文)	方法名稱 (中文)	方法類別	可解釋範圍 (Scope)	模型相依性 (Model Dependence)	描述 (Description)	優點 (Pros)	缺點 (Cons)	範例應用 (Example Use Case)	圖像
+Feature Importance-based Methods	基於特徵重要性的方法	特徵重要性	全局 (Global)	模型不可知 (Model-agnostic) / 模型內置 (Model-intrinsic)	旨在識別模型預測中最具影響力的特徵。	易於理解；可快速了解哪些特徵最重要。	可能忽略特徵之間的交互作用；排列特徵重要性計算成本可能較高。	了解哪些基因在疾病預測模型中扮演重要角色。	
+* Permutation Feature Importance	* 排列特徵重要性	特徵重要性	全局 (Global)	模型不可知 (Model-agnostic)	通過隨機打亂每個特徵的數值並觀察模型性能的下降程度來評估特徵的重要性。	模型不可知；直觀易懂。	計算成本可能較高；可能受到特徵相關性的影響。	評估客戶流失預測模型中，哪些客戶特徵 (如年齡、消費金額) 最為關鍵。	
+在新視窗中開啟
+medium.com
+Permutation Feature Importance example graph showing feature importance scores
+* Model-intrinsic Feature Importance	* 模型內置特徵重要性	特徵重要性	全局 (Global)	模型內置 (Model-intrinsic)	某些模型 (如線性模型、決策樹) 本身提供特徵重要性的度量。	計算效率高；模型本身直接提供；適用於特定模型。	僅限於特定模型；不同模型提供的特徵重要性度量方式可能不同。	利用決策樹模型的特徵重要性，分析哪些因素最影響貸款違約風險。	
+在新視窗中開啟
+medium.com
+Decision Tree Feature Importance visualization example showing feature importance within the tree structure
+* Global Surrogate Feature Importance	* 全局代理特徵重要性	特徵重要性	全局 (Global)	模型不可知 (Model-agnostic)	使用可解釋的模型 (如線性模型、決策樹) 來近似複雜的黑盒模型，分析代理模型的特徵重要性。	模型不可知；可以使用簡單模型解釋複雜模型；可解釋全局行為。	代理模型的準確性可能影響解釋的可靠性；可能無法完全捕捉黑盒模型的複雜性。	使用線性模型作為代理模型解釋複雜深度學習模型的全局特徵重要性。	
+在新視窗中開啟
+www.mdpi.com
+Surrogate Model explaining a complex model conceptual diagram
+Local Explanations Methods	基於局部可解釋性的方法	局部可解釋性	局部 (Local)	模型不可知 (Model-agnostic)	專注於解釋單個預測背後的理由，解釋為什麼模型對特定輸入樣本做出特定的預測。	針對單個樣本提供解釋；適用於任何模型。	局部解釋可能不代表全局行為；可能需要多次計算才能獲得穩定的解釋。	解釋為什麼特定病患被診斷出患有某種疾病。	
+* LIME (Local Interpretable...)	* LIME (局部可解釋模型-不可知解釋)	局部可解釋性	局部 (Local)	模型不可知 (Model-agnostic)	在目標樣本周圍採樣，訓練局部代理模型 (如線性模型) 近似黑盒模型局部行為，使用代理模型係數作為局部特徵重要性度量。	模型不可知；提供局部特徵重要性；直觀易懂。	局部區域定義可能影響解釋結果；代理模型的選擇會影響解釋；對離散特徵處理可能不足。	解釋為什麼特定客戶被預測為高風險客戶。	
+在新視窗中開啟
+www.mdpi.com
+LIME explanation framework showing local perturbation around a data point and local linear model
+* Counterfactual Explanations	* 反事實解釋	局部可解釋性	局部 (Local)	模型不可知 (Model-agnostic)	通過尋找與實際樣本相似但在某些特徵上不同的反事實樣本，揭示需要改變哪些特徵才能得到不同的預測結果。	直觀；提供行動建議 (哪些特徵需要改變)；易於理解。	反事實樣本的合理性可能需要考量；可能存在多個反事實樣本；計算成本可能較高。	使用者可以根據反事實解釋調整哪些輸入條件，以獲得期望的模型預測結果 (例如，貸款申請被拒絕，反事實解釋可以告訴申請人需要調整哪些財務條件)。	
+在新視窗中開啟
+www.inference.vc
+Counterfactual Explanation example showing original data point and counterfactual data point and their respective predictions
+* Anchors	* 錨點解釋	局部可解釋性	局部 (Local)	模型不可知 (Model-agnostic)	旨在找到決定模型特定預測的規則或條件 (錨點)。錨點是一個規則，滿足該規則則模型預測將始終保持不變。	提供基於規則的解釋；易於理解；錨點規則具有穩定性。	錨點規則可能過於簡化；可能難以找到可靠的錨點規則；規則的適用範圍可能有限。	找出決定垃圾郵件分類器將特定郵件判斷為垃圾郵件的關鍵規則。	
+在新視窗中開啟
+christophm.github.io
+Anchor explanation example showing rule based anchor conditions leading to a specific prediction
+Rule Extraction Methods	基於規則提取的方法	規則提取	全局/局部 (Global/Local)	模型相依性 (Model-dependent)	從複雜模型中提取人類可理解的規則，幫助理解模型的決策邏輯。	將複雜模型簡化為易於理解的規則；可直接理解模型的決策過程。	提取規則可能無法完全代表複雜模型的行為；提取規則的準確性和可信度需要驗證；規則可能過於簡化，損失模型複雜性。	將複雜的神經網路模型轉換為決策樹，以便理解模型的決策路徑。	
+* Decision Tree Extraction	* 決策樹提取	規則提取	全局 (Global)	模型相依性 (Model-dependent)	將訓練好的複雜模型近似為決策樹，決策樹路徑可視為模型的決策規則。	將複雜模型轉換為可解釋的決策樹；可直接視覺化決策規則。	決策樹可能無法完全近似複雜模型的行為；提取的決策樹可能過於龐大複雜；可能犧牲模型預測準確性。	將複雜的深度學習圖像分類模型轉換為決策樹，以便理解模型如何基於圖像特徵進行分類。	
+在新視窗中開啟
+explained.ai
+Decision Tree extracted from a complex model visualization
+* RuleFit	* RuleFit	規則提取	全局 (Global)	模型相依性 (Model-dependent)	構建稀疏線性模型，包含原始輸入特徵和從決策樹生成的規則，提供全局的、基於規則的解釋。	結合了線性模型和規則的優點；提供全局規則解釋；模型相對稀疏易於理解。	模型複雜度介於線性模型和原始模型之間；規則生成過程可能影響模型解釋；模型仍可能比簡單線性模型複雜。	使用 RuleFit 模型解釋客戶信用評分模型的決策規則。	
+在新視窗中開啟
+christophm.github.io
+RuleFit model structure showing linear model with original features and rules from decision trees
+Attention Mechanism based Methods	基於注意力機制的方法	注意力機制	局部 (Local)	模型內置 (Model-intrinsic)	對於使用注意力機制的模型 (如 Transformer)，注意力權重指示模型關注輸入的哪些部分。	直接利用模型內部的注意力權重；適用於注意力機制模型；可視化呈現模型關注重點。	注意力權重的解釋性可能存在爭議；注意力機制本身可能難以解釋；僅適用於特定模型結構。	在自然語言處理任務中，利用注意力機制解釋模型在翻譯句子時關注了哪些詞語。	
+* Attention Visualization	* 注意力可視化	注意力機制	局部 (Local)	模型內置 (Model-intrinsic)	可視化注意力權重，了解模型在處理輸入時的關注點。	直觀呈現注意力分佈；易於理解模型關注重點；適用於視覺化分析。	視覺化結果可能主觀解讀；注意力權重的解釋性仍需謹慎；僅適用於注意力機制模型。	可視化圖像分類模型在識別貓時，注意力集中在貓的臉部區域。	
+在新視窗中開啟
+www.researchgate.net
+Attention Visualization in NLP task example showing attention weights between words in a sentence
+Prototype and Criticism Methods	基於原型和批評的方法	原型與批評	全局 (Global)	模型不可知 (Model-agnostic)	通過識別代表性樣本 (原型) 和異常樣本 (批評) 來解釋數據集或模型的決策。	提供直觀的代表性樣本和異常樣本；易於理解數據集的結構和模型的決策依據。	原型和批評的定義可能較為主觀；選擇合適的原型和批評方法可能需要實驗；可能需要額外視覺化方法輔助理解。	在人臉識別模型中，原型代表常見的人臉特徵，批評代表罕見或異常的人臉特徵。	
+* Prototypes	* 原型	原型與批評	全局 (Global)	模型不可知 (Model-agnostic)	識別數據集中最具代表性的樣本，幫助理解數據集的典型模式。	直觀代表數據集中常見的模式；易於理解數據分佈；可作為數據集的摘要。	原型的選擇方法可能影響結果；原型可能無法代表所有數據模式；可能需要結合其他方法理解數據集整體特性。	在手寫數字數據集中，原型可以呈現每個數字的典型寫法。	
+在新視窗中開啟
+christophm.github.io
+Prototypes in a dataset visualized as representative data points
+* Criticisms	* 批評	原型與批評	全局 (Global)	模型不可知 (Model-agnostic)	識別與原型最不相似的樣本，幫助識別數據集中的異常或邊緣情況。	突出數據集中不常見的模式；有助於發現異常值或特例；可幫助模型提升對異常情況的處理能力。	批評的定義可能較為主觀；批評可能僅代表噪聲或無關信息；可能需要領域知識判斷批評的意義。	在信用卡交易數據集中，批評可以標識異常交易模式，幫助檢測欺詐行為。	
+在新視窗中開啟
+medium.com
+Criticisms in a dataset visualized as outlier data points compared to prototypes
+Other Methods	其他方法	其他方法	-	-	其他 XAI 方法，提供不同角度的可解釋性。	方法多樣性；針對特定需求提供更精細的解釋。	方法適用性可能有限；部分方法概念較為抽象；可能需要更深入的技術背景才能理解和應用。	-	
+* Activation Maximization	* 激活最大化	其他方法	局部 (Local)	模型相依性 (Model-dependent)	通過優化輸入空間找到能最大化神經網絡特定神經元或層激活的輸入模式，理解神經網絡學習到的特徵。	可視化神經網路內部特徵表示；幫助理解神經網路學習到的概念；適用於圖像等高維度數據。	優化過程計算成本可能較高；生成的輸入模式可能難以理解；解釋結果可能受優化方法影響。	視覺化卷積神經網路 (CNN) 不同層級的神經元所關注的圖像特徵。	
+在新視窗中開啟
+www.researchgate.net
+Activation Maximization example showing optimized input patterns for specific neurons
+* Concept Activation Vectors (CAVs)	* 概念激活向量 (CAVs)	其他方法	全局 (Global)	模型相依性 (Model-dependent)	量化模型預測對特定人類可理解概念的敏感度，理解模型是否基於期望的概念做決策。	量化模型與人類概念的關聯性；可驗證模型是否符合預期行為；有助於模型調試和改進。	概念定義可能較為主觀；需要預先定義人類可理解的概念；CAVs 的計算和解釋可能需要專業知識。	驗證圖像分類模型是否基於「條紋」概念識別斑馬圖像。	
+在新視窗中開啟
+www.researchgate.net
+CAVs concept explanation showing how concepts affect model predictions
+表格使用說明:
+
+方法名稱 (英文/中文): 提供方法的英文和中文名稱，方便查閱和理解。
+方法類別: 將方法歸類，方便您根據需求快速查找特定類別的方法。
+可解釋範圍: 區分方法提供的是全局解釋 (了解模型整體行為) 還是局部解釋 (針對單個預測)。
+模型相依性: 標示方法是否模型不可知 (適用於任何模型) 或模型內置 (僅適用於特定模型)。
+描述: 簡要描述方法的核心思想和運作方式。
+優點: 列出使用該方法的主要優勢。
+缺點: 指出該方法可能存在的局限性或不足之處。
+範例應用: 提供實際應用場景，幫助理解方法的使用方式和價值。
+圖像: 提供相關圖像的索引，方便您視覺化理解方法概念 (點擊 `` 即可查看圖像)。
+如何選擇 XAI 方法:
+
+如同先前所述，選擇 XAI 方法需要綜合考量多種因素。這個表格能幫助您更快速地比較不同方法的特性，並根據您的具體需求 (例如，需要全局解釋還是局部解釋、模型類型、目標受眾等) 做出更明智的選擇。
+
+希望這份更詳細的表格能幫助您更好地理解和應用 XAI 技術！
