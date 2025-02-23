@@ -1,6 +1,8 @@
 80分鐘快速了解大型語言模型(5:30 有咒術迴戰雷)
 generative pre-trained transformer
-文字接龍,符號(token)機率分布,擲骰子
+文字接龍,可以選擇的符號(token)機率分布,擲骰子
+預訓練、監督式學習(標準答案)、增強式學習(有/沒有)RLHF從人類的回饋學習->增強式學習(提高/降低機率)<-alignment human
+
 
 
 
