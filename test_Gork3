@@ -5,3 +5,24 @@
 https://docs.google.com/presentation/d/1SD8r4PyE5gXK8h4fjeljp5Tte1LVMZSXXnuPpkF___8/edit?usp=sharing
 
 https://docs.google.com/presentation/d/e/2PACX-1vRPbg5U34qixSfNxtXfee-AmM5SbxZQ1gzTrNjoktzlMB0kqJ2cHZvuXGGUc4FIQ6ER8XwAxzkHHkCo/pub?start=false&loop=false&delayms=60000
+import shap
+import numpy as np
+from sklearn.metrics import r2_score
+
+# 假設有模型 model，數據 X, y
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X)
+
+# 計算每個特徵的 SHAP 值方差
+var_shap = np.var(shap_values.values, axis=0)
+
+# 計算總方差
+total_var = np.sum(var_shap)
+
+# 計算模型 R^2
+y_pred = model.predict(X)
+r2 = r2_score(y, y_pred)
+
+# 計算每個特徵的解釋百分比
+explanation_rate = (var_shap / total_var) * r2 * 100
+print("每個特徵的解釋百分比:", explanation_rate)
