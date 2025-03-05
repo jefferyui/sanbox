@@ -1,0 +1,144 @@
+https://github.com/stedy/Machine-Learning-with-R-datasets/blob/master/winequality-white.csv
+
+
+# do
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+import shap
+
+
+def calculate_shapley_r2(X, y, model):
+    # 训练模型
+    model.fit(X, y)
+
+    # 计算Shapley值
+    explainer = shap.Explainer(model)
+    shap_values = explainer(X)
+
+    # 计算基线R²
+    y_pred = model.predict(X)
+    var_y_pred = np.var(y_pred)
+    var_res = np.var(y - y_pred)
+    R_baseline_2 = var_y_pred / (var_y_pred + var_res)
+    print("R_baseline_2:",R_baseline_2)
+    R_shap_2_f = []
+    for f in range(X.shape[1]):
+        # 计算Shapley修正预测值
+        y_pred_shap_f = y_pred - shap_values[:, f].values
+        var_res_f = np.var(y - y_pred_shap_f)
+
+        # 计算特征级R²
+        numerator = R_baseline_2 - min(var_res / var_res_f, 1) * R_baseline_2
+        denominator = np.sum([R_baseline_2 - min(var_res / np.var(y - (y_pred - shap_values[:, i].values)), 1) * R_baseline_2 for i in range(X.shape[1])])
+        R_shap_2_f.append(numerator / denominator * R_baseline_2)
+
+    return R_shap_2_f
+
+
+# 示例数据，这里使用随机数据代替真实数据
+# num_samples = 100
+# num_features = 5
+# X = pd.DataFrame(np.random.randn(num_samples, num_features), columns=[f'feature_{i}' for i in range(num_features)])
+# y = pd.Series(np.random.randn(num_samples))
+data = pd.read_csv('winequality-white.csv', sep=',')
+X = data.drop('quality', axis=1)
+y = data['quality']
+
+# 使用XGBoost回归模型
+model = xgb.XGBRegressor(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42)
+
+# 计算特征级R²
+R_shap_2_f_values = calculate_shapley_r2(X, y, model)
+
+# 展示结果
+feature_importance_df = pd.DataFrame({
+    'Feature': X.columns,
+    'Shapley - R²': R_shap_2_f_values
+})
+print(feature_importance_df)
+feature_importance_df['Shapley - R²'].sum()
+
+
+
+
+##############
+# Deepseek R1
+import numpy as np
+import pandas as pd
+import shap
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score
+import xgboost as xgb
+
+# 示例数据加载（以葡萄酒质量数据集为例）
+data = pd.read_csv('winequality-white.csv', sep=',')
+X = data.drop('quality', axis=1)
+y = data['quality']
+
+# 划分训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 转换数据格式为DMatrix（可选）
+dtrain = xgb.DMatrix(X_train, label=y_train)
+dtest = xgb.DMatrix(X_test, label=y_test)
+
+# 训练XGBoost模型
+params = {
+    'objective': 'reg:squarederror',
+    'n_estimators': 1000,
+    'learning_rate': 0.1,
+    'random_state': 42
+}
+model = xgb.train(params, dtrain, num_boost_round=1000)
+
+# 计算基准预测和R²
+y_pred = model.predict(dtest)
+baseline_r2 = r2_score(y_test, y_pred)
+print(f"Baseline R²: {baseline_r2:.4f}")
+
+# 计算Shapley值
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_test)
+
+# 初始化存储特征重要性的字典
+feature_importance = {col: 0 for col in X.columns}
+
+# 计算总残差方差
+residual_baseline = y_test - y_pred
+var_res_baseline = np.var(residual_baseline)
+
+# 遍历每个特征计算贡献
+for f_idx, feature in enumerate(X.columns):
+    # 生成Shapley调整后的预测
+    y_pred_shap = y_pred - shap_values[:, f_idx]
+    
+    # 计算调整后的残差方差
+    residual_shap = y_test - y_pred_shap
+    var_res_shap = np.var(residual_shap)
+    
+    # 计算方差比例（公式6核心部分）
+    ratio = min(var_res_baseline / var_res_shap, 1)
+    delta_r2 = baseline_r2 - ratio * baseline_r2
+    
+    feature_importance[feature] = delta_r2
+
+# 归一化处理（确保总和等于baseline R²）
+total = sum(feature_importance.values())
+for feature in feature_importance:
+    feature_importance[feature] = (feature_importance[feature] / total) * baseline_r2
+
+# 输出结果
+print("\nFeature Importance (R² decomposition):")
+
+sum_shap_R = 0
+for feature, importance in sorted(feature_importance.items(), key=lambda x: x[1], reverse=True):
+    sum_shap_R +=importance
+    print(f"{feature}: {importance:.4f}")
+print("sum_shap_R",sum_shap_R)
+# 计算σ_unique（公式7）
+var_y = np.var(y_test)
+sum_var_shap = sum([np.var(y_test - (y_pred - shap_values[:, f_idx])) for f_idx in range(X.shape[1])])
+sigma_unique = sum_var_shap / (var_y - var_res_baseline)
+print(f"\nσ_unique: {sigma_unique:.4f}")
+
