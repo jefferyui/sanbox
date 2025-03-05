@@ -240,3 +240,85 @@ print(feature_r2_df)
 # 计算可唯一归因于每个特征的方差比例
 sigma_unique = calculate_sigma_unique(X, y, model)
 print(f"\n可唯一归因于每个特征的方差比例 (sigma_unique): {sigma_unique}")
+
+
+
+#####################
+import xgboost as xgb
+import shap
+import numpy as np
+import pandas as pd
+# from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+
+# # 1. 加载数据集
+# data = load_boston()
+# X = pd.DataFrame(data.data, columns=data.feature_names)
+# y = data.target
+
+# 2. 划分训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 3. 训练XGBoost模型
+model = xgb.XGBRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
+model.fit(X_train, y_train)
+
+# 4. 计算基线R²
+y_pred = model.predict(X_test)
+var_y_pred = np.var(y_pred)
+residuals = y_test - y_pred
+var_res = np.var(residuals)
+R_baseline = var_y_pred / (var_y_pred + var_res)
+print(f"Baseline R²: {R_baseline:.4f}")
+
+# 5. 计算Shapley值
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_test)  # 形状为 (样本数, 特征数)
+
+# 6. 计算每个特征的R²贡献
+feature_importance = {}
+n_features = X_test.shape[1]
+
+for f in range(n_features):
+    # 计算修改后的预测值
+    y_pred_shap = y_pred - shap_values[:, f]
+    
+    # 计算新的残差方差
+    new_residuals = y_test - y_pred_shap
+    var_res_f = np.var(new_residuals)
+    
+    # 处理数值不稳定情况
+    if var_res_f == 0:
+        ratio = 1.0
+    else:
+        ratio = var_res / var_res_f
+        ratio = min(ratio, 1.0)  # 确保不超过1
+    
+    # 计算贡献
+    contribution = R_baseline * (1 - ratio)
+    feature_importance[X.columns[f]] = contribution
+
+# 7. 归一化并计算最终R²
+total_contribution = sum(feature_importance.values())
+if total_contribution > 0:
+    for feature in feature_importance:
+        feature_importance[feature] *= R_baseline / total_contribution
+
+# 8. 输出结果
+sorted_features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)
+print("\nFeature Importance (R² Decomposition):")
+for feature, importance in sorted_features:
+    print(f"{feature}: {importance:.4f}")
+
+# 可视化示例（需要安装matplotlib）
+import matplotlib.pyplot as plt
+
+features = [f[0] for f in sorted_features]
+importances = [f[1] for f in sorted_features]
+
+plt.figure(figsize=(10, 6))
+plt.barh(features, importances)
+plt.xlabel('Explained Variance (R²)')
+plt.title('Feature Importance Based on Shapley Decomposition')
+plt.gca().invert_yaxis()
+plt.show()
