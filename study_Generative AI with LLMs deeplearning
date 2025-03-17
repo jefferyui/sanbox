@@ -1,0 +1,49 @@
+Generative AI with LLMs deeplearning
+introduction-week-1~2
+transformer
+本视频主要介绍了本周课程的主要内容，包括 Transformer 网络的工作原理、其架构中的多注意力机制等，还提到了 Transformer 在视觉等领域的应用
+
+
+W1 3 Generative AI & LLMs
+本视频介绍生成式人工智能及大语言模型，包括其使用场景、工作原理
+
+W1 4 LLM use cases and tasks
+介绍了大型语言模型（LLM）的多种使用案例和任务，包括文本生成中的不同任务如写文章、总结对话、翻译，信息检索中的命名实体识别，以及通过连接外部数据源增强 LLM 等
+
+W1 5 Generating Text
+循环神经网络（RNN）到 Transformer 架构带来生成式 AI 的重大变革
+
+W1 6 Transformers Architecture
+Transformer 架構的關鍵屬性自我注意力機制，以及 Transformer 架構的高層運作方式，如編碼器和解碼器、嵌入層、位置編碼、多頭自我注意力和全連接前饋網絡
+
+W1 7 Generating Text with Transformers
+编码器和解码器的作用、不同类型的 Transformer 模型（如编码器模型、编码器 - 解码器模型、解码器模型）
+
+W1 8 Prompting and prompt engineering
+本视频介绍了提示工程，包括提示、推理、完成等术语，重点讲解了通过在提示中加入示例进行上下文学习来改善模型输出，如零次推断、一次推断、少次推断等，还提到模型性能不佳时可尝试微调
+
+W1 9 Generative configuration
+本视频介绍了影响语言模型生成下一个词的方法和相关配置参数，包括最大生成词数、随机采样、Top K 和 Top P 采样技术以及温度参数对输出的影响，最后提到下一个视频将基于这些知识构建语言模型驱动的应用。
+
+W1 10 Generative AI Project Lifecycle
+本视频介绍了生成式 AI 项目生命周期，包括定义项目范围、选择模型训练方式、评估和改进模型性能、运用强化学习确保模型良好表现、部署优化模型以及考虑额外基础设施以克服语言模型的局限性。
+
+W1 11 Introduction to AWS Lab
+AWS 操作
+W1 12 Lab 1 walkthrough
+
+W1 13 Pre training large language models
+提到了模型规模与能力的关系及训练大型模型的挑战
+
+W1 14 Computational challenges of training LLMs
+
+本视频主要介绍了训练大型语言模型时面临的内存挑战及量化这一解决方案，包括不同精度数据类型对内存占用的影响及 B float 16 的优势，还提到了随着模型规模增大需采用分布式计算，同时提供了关于跨 GPU 训练的可选视频。
+
+W1 15 Optional video Efficient multi GPU compute strategies
+本视频主要介绍了训练大型语言模型时面临的内存挑战及量化这一解决方案，包括不同精度数据类型对内存占用的影响及 B float 16 的优势，还提到了随着模型规模增大需采用分布式计算，同时提供了关于跨 GPU 训练的可选视频。
+
+W1 16 Scaling Laws and Compute Optimal Models
+本视频主要介绍了训练大型语言模型中模型规模、训练配置与性能的关系，包括计算资源的量化、不同模型的计算需求对比、计算预算与模型性能的关系，以及计算最优模型 Chinchilla 的研究成果和影响。
+
+W1 17 Pre training for domain adaptation
+视频主要介绍了在特定领域中可能需要从头预训练模型的情况，以实现更好的模型性能，还以 Bloomberg GPT 为例说明了预训练特定领域语言模型的方法，并回顾了本周所学内容。
