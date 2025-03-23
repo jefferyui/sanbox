@@ -47,3 +47,37 @@ W1 16 Scaling Laws and Compute Optimal Models
 
 W1 17 Pre training for domain adaptation
 视频主要介绍了在特定领域中可能需要从头预训练模型的情况，以实现更好的模型性能，还以 Bloomberg GPT 为例说明了预训练特定领域语言模型的方法，并回顾了本周所学内容。
+
+
+W2 1 Introduction Week 2
+大型语言模型的指令微调
+W2 2 Instruction fine tuning
+如何通过指令微调改进现有模型性能，包括指令微调的方法、重要指标、训练过程及步骤等内容。
+
+W2 3 Fine tuning on a single task
+大语言模型可在单一任务上微调以提升特定任务性能，但可能导致灾难性遗忘，讨论了避免灾难性遗忘的方法，包括确定其是否影响使用场景、同时在多个任务上微调、进行参数高效微调。
+
+W2 4 Multi task instruction fine tuning
+多任務指令微調（Multi task instruction fine tuning），包括其概念、FLAN 模型家族、以 FLAN T5 為例的提示模板及對特定任務的優化，並提到在實際應用中要考慮如何評估模型的完成質量。
+
+W2 5 Model Evaluation
+本视频主要介绍了大型语言模型的评估指标，包括 Rouge 和 BLEU，讲解了它们的计算方法和应用场景，强调不能单独使用这些指标进行最终评估，需结合其他评估基准。
+
+rouge: unigram/bigram matching
+BLEU: text translation compares to human generated translation
+
+W2 6 Benchmarks
+過既有資料集和基準對大語言模型進行更全面的評估，包括選擇合適的評估資料集
+
+W2 7 Parameter efficient fine tuning PEFT
+frozen weight
+参数高效微调（PEFT）方法，对比全微调，PEFT 只更新少量参数子集或新增少量参数 / 层，减少训练内存需求，更易在单 GPU 上运行且不易出现灾难性遗忘问题，还介绍了几种 PEFT 方法及优缺点，最后引出特定软提示技术 prompt tuning 和下一个视频将介绍的 Laura 方法。
+
+W2 8 PEFT techniques 1 LoRA
+介紹了 PEFT 技術中的 LoRA（低秩適應），包括其工作原理、實例展示、性能對比、如何選擇矩陣秩等內容，強調其在減少可訓練參數、提高訓練效率方面的優勢。
+
+W2 9 PEFT techniques 2 Soft prompts
+视频介绍了参数高效微调技术（PEFT）中的软提示（soft prompts）方法，包括其与提示工程的区别、工作原理、性能表现及实际应用，还提到了另一种 PEFT 方法 Laura 及二者结合的 QLaura。
+
+W2 10 Lab 2 walkthrough
+本视频是关于 W2 10 Lab 2 的介绍，主要讲解了使用 flan T5 模型进行总结任务的全量微调及参数高效微调（Puft），包括模型加载、数据处理、训练过程以及通过 Rouge 指标评估不同微调策略的效果。
