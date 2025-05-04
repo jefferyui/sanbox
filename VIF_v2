@@ -86,3 +86,27 @@ print(vif_df)
 print("\n=== 相關分群 (|corr| >= 0.8) ===")
 for grp, feats in feature_groups.items():
     print(f"群 {grp}: {feats}")
+
+
+#####################################################
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_selection import SelectFromModel
+
+# 用同樣的 X, y
+lasso = LogisticRegression(penalty='l1', solver='saga', C=1.0, max_iter=5000)
+selector = SelectFromModel(lasso)
+selector.fit(X, y)
+
+selected_lasso = X.columns[selector.get_support()].tolist()
+print("=== Selected by Lasso ===")
+print(selected_lasso)
+#####################################################
+from sklearn.feature_selection import RFE
+
+# 以隨機森林為基模型
+rfe = RFE(estimator=RandomForestClassifier(n_estimators=50, random_state=42), n_features_to_select=5)
+rfe.fit(X, y)
+
+selected_rfe = X.columns[rfe.support_].tolist()
+print("=== Selected by RFE (top 5) ===")
+print(selected_rfe)
