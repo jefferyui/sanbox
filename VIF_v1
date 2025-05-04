@@ -1,0 +1,56 @@
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
+
+def calculate_vif_with_label_encoding(
+    df: pd.DataFrame,
+    categorical_cols: list = None
+) -> pd.DataFrame:
+    """
+    使用 Label Encoding 把類別型變數轉整數，再計算 VIF。
+
+    參數
+    ----
+    df : pd.DataFrame
+        原始資料。
+    categorical_cols : list, optional
+        需編碼的類別欄位，若 None 自動偵測 object/category。
+
+    回傳
+    ----
+    vif_df : pd.DataFrame
+        各特徵 VIF 排序結果。
+    """
+    df2 = df.copy()
+
+    # 1. 偵測要做 Label Encoding 的欄位
+    if categorical_cols is None:
+        categorical_cols = df2.select_dtypes(include=['object', 'category']).columns.tolist()
+
+    # 2. 逐欄做 Label Encoding
+    le = LabelEncoder()
+    for col in categorical_cols:
+        # 先填補 NA（避免 error）
+        df2[col] = df2[col].fillna('NA')
+        df2[col] = le.fit_transform(df2[col])
+
+    # 3. 留下所有變數（現在皆為數值型）
+    X = df2.select_dtypes(include=['number']).dropna()
+
+    # 4. 加入常數項
+    X_const = add_constant(X)
+
+    # 5. 計算並整理 VIF
+    vif_data = []
+    for i, feat in enumerate(X_const.columns):
+        vif = variance_inflation_factor(X_const.values, i)
+        vif_data.append({'feature': feat, 'VIF': vif})
+
+    vif_df = pd.DataFrame(vif_data).sort_values('VIF', ascending=False).reset_index(drop=True)
+    return vif_df
+
+# 使用範例
+# 假設 df 已讀入
+vif_df = calculate_vif_with_label_encoding(df)
+print(vif_df)
