@@ -1,0 +1,48 @@
+feature wafer id ,Datetime, lotid要怎麼判斷是不是noise feature 
+在工業製程或半導體領域，像 Wafer ID、Datetime (時間戳記) 和 Lot ID (批次編號) 這類「識別性」特徵經常被視為噪音特徵（noise features），因為它們本身只用來標識單筆記錄，與產品良率或異常預測等目標通常無直接因果關係。然而，在移除前，我們仍需透過多種分析手段來驗證它們是否真的對模型毫無貢獻。以下分成三大步驟說明如何判斷與處理：
+
+1. 初步檢查：統計與視覺化分析
+1.1 唯一值比率
+原理：純識別特徵（如 Wafer ID、Lot ID）在資料集中往往每筆都唯一或少數重複，因此唯一值佔比極高（接近 100%）。
+
+實作：
+
+python
+複製
+編輯
+for col in ['WaferID','LotID','Datetime']:
+    uniq_ratio = df[col].nunique() / len(df)
+    print(f"{col} 唯一值占比: {uniq_ratio:.2%}")
+若比率 > 95%，可初步懷疑為噪音特徵。
+
+
+判斷像 WaferID、Datetime、LotID 這類「識別性」欄位是否為噪音特徵，一般要走三大步驟：
+
+1. 唯一值／變異檢查
+唯一值比率：若某欄位的 nunique / len(df) 接近 1，幾乎每筆都不重複，就很可能只是純識別，不帶任何共通訊息。
+
+低方差／常數檢查：對時間戳記切分後的子欄位（如秒、毫秒）也做方差檢查，方差極低可先剔除。
+
+python
+複製
+編輯
+for col in ['WaferID','LotID']:
+    ratio = df[col].nunique() / len(df)
+    print(col, 'unique ratio =', ratio)
+# Datetime 可先拆小時/週幾再檢查
+2. 單變量與模型重要度檢測
+單變量檢驗：把這些欄位做 Label Encoding（或直接 one‑hot 少量類別），對分類任務用 ANOVA F‑test，對迴歸任務用皮爾森相關，若 p‑value 高、|corr| 低，屬於噪音。
+
+樹模型重要度：訓練 XGBoost/RandomForest，觀察這些欄位的 feature_importances_（或 get_score()），若接近 0，就可考慮移除。
+
+python
+複製
+編輯
+# Label encode
+from sklearn.preprocessing import LabelEncoder
+le = LabelEncoder()
+df['WaferID_code'] = le.fit_transform(df['WaferID'])
+# 訓練 XGB
+from xgboost import XGBClassifier
+model = XGBClassifier().fit(X, y)
+print(model.get_booster().get_score(importance_type='gain'))
