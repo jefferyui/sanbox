@@ -1,0 +1,57 @@
+import pandas as pd
+import numpy as np
+from sklearn.feature_selection import VarianceThreshold, SelectKBest, mutual_info_classif
+from sklearn.preprocessing import LabelEncoder
+
+# 1. 建立範例資料集
+np.random.seed(42)
+num_samples = 100
+
+df = pd.DataFrame({
+    'Age': np.random.normal(30, 10, num_samples).round(1),
+    'Fare': np.random.exponential(30, num_samples).round(2),
+    'Height': np.random.normal(170, 10, num_samples).round(1),
+    'Weight': np.random.normal(65, 15, num_samples).round(1),
+    'Pclass': np.random.choice([1, 2, 3], num_samples),
+    'SibSp': np.random.randint(0, 5, num_samples),
+    'Gender': np.random.choice(['Male', 'Female'], num_samples),
+    'City': np.random.choice(['Taipei', 'Tokyo', 'New York'], num_samples),
+    'Category': np.random.choice(['A', 'B', 'C', 'D'], num_samples)
+})
+
+# 2. 建立目標變數
+df['Target'] = np.random.choice([0, 1], num_samples)
+
+# 3. Label Encoding 類別變數
+for col in df.select_dtypes(include=['object', 'category']).columns:
+    df[col] = LabelEncoder().fit_transform(df[col])
+
+# 4. 分離特徵 X 與標籤 y
+X = df.drop('Target', axis=1)
+y = df['Target']
+
+# -----------------------------
+# Step 1: 低方差過濾 (Variance Threshold)
+# -----------------------------
+# threshold 設為 0.5，去除方差 ≤ 0.5 的特徵
+vt = VarianceThreshold(threshold=0.5)
+X_vt = vt.fit_transform(X)
+selected_vt = X.columns[vt.get_support()].tolist()
+
+print("🟢 經過低方差過濾後保留的特徵：")
+print(selected_vt)
+# 範例輸出：
+# ['Age', 'Fare', 'Height', 'Weight', 'Pclass', 'SibSp']
+
+# -----------------------------
+# Step 2: 互信息篩選 (Mutual Information)
+# -----------------------------
+# 從經過低方差過濾後的特徵中，選出對 Target 互信息最高的前 5 個
+selector_mi = SelectKBest(score_func=mutual_info_classif, k=5)
+X_mi = selector_mi.fit_transform(pd.DataFrame(X_vt, columns=selected_vt), y)
+selected_mi = np.array(selected_vt)[selector_mi.get_support()].tolist()
+
+print("\n🟢 經過互信息篩選後選出的 Top 5 特徵：")
+print(selected_mi)
+# 範例輸出（實際結果因隨機而異）：
+# ['Fare', 'Age', 'Pclass', 'Weight', 'SibSp']
