@@ -1,0 +1,75 @@
+import numpy as np
+import pandas as pd
+
+# 设置随机种子以便复现结果
+np.random.seed(42)
+
+# 创建样本数量
+n_samples = 1000
+
+# 创建独立变量x1和x2
+x1 = np.random.normal(0, 1, n_samples)  # 均值为0，标准差为1的正态分布
+x2 = np.random.normal(0, 1, n_samples)  # 均值为5，标准差为2的正态分布
+
+# 计算各自的贡献
+contribution_x1 = 0.5 * x1  # x1贡献50%
+contribution_x2 = 0.3 * x2  # x2贡献30%
+
+# 添加20%的随机噪声
+noise = np.random.normal(0, 1, n_samples) * 0.2
+
+# 创建y值
+y = contribution_x1 + contribution_x2 + noise
+
+# 创建数据框
+data = pd.DataFrame({
+    'x1': x1,
+    'x2': x2,
+    'y': y
+})
+
+# 查看前几行数据
+print(data.head())
+
+# 可选：保存到CSV文件
+# data.to_csv('independent_contributions_dataset.csv', index=False)
+
+
+
+from sklearn.linear_model import LinearRegression
+
+# 拟合线性模型
+model = LinearRegression()
+model.fit(data[['x1', 'x2']], data['y'])
+
+# 打印系数
+print("x1系数:", model.coef_[0])  # 应该接近0.5
+print("x2系数:", model.coef_[1])  # 应该接近0.3
+
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(12, 5))
+
+# y 对 x1 的散点图
+plt.subplot(1, 2, 1)
+plt.scatter(x1, y, alpha=0.5, color='blue')
+plt.title('y vs x1')
+plt.xlabel('x1')
+plt.ylabel('y')
+
+# y 对 x2 的散点图
+plt.subplot(1, 2, 2)
+plt.scatter(x2, y, alpha=0.5, color='green')
+plt.title('y vs x2')
+plt.xlabel('x2')
+plt.ylabel('y')
+
+plt.tight_layout()
+plt.show()
+
+import numpy as np
+
+# 计算Pearson相关系数
+corr_coef = np.corrcoef(x1, x2)[0, 1]
+print(f"Pearson相关系数: {corr_coef:.6f}")
