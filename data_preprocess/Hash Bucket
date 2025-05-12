@@ -1,0 +1,50 @@
+類似LabelEncoder，但又無順序性
+
+如果你想要「一欄式」的編碼（像 LabelEncoder），但又不希望編碼值隱含順序性，可以考慮Hash Bucket 編碼。它的做法是把每個類別字串透過哈希函式（hash）映射到一個固定數量的桶（bucket）編號上，編號範圍是[0,N−1]，但這些數值只是「桶標籤」，不代表大小或順序。import pandas as pd
+
+# 假資料
+df = pd.DataFrame({
+    'city': ['Taipei', 'Kaohsiung', 'Taichung', 'Taipei', 'Taichung'],
+    'device': ['mobile', 'desktop', 'desktop', 'tablet', 'mobile']
+})
+
+# 設定要 hash 到多少個桶
+n_buckets = 10
+
+# 定義一個安全的 hash_bucket 函式
+def hash_bucket(val: str, num_buckets: int) -> int:
+    # Python 內建 hash 可能為負，這裡轉正並 mod
+    h = hash(val)
+    return (h % num_buckets + num_buckets) % num_buckets
+
+# 把所有類別欄位都做 Hash Bucket 編碼
+for col in ['city', 'device']:
+    df[f'{col}_hb'] = df[col].astype(str).apply(lambda x: hash_bucket(x, n_buckets))
+
+print(df)
+
+city_hb、device_hb 都只有一欄，是整數 0–9（因為 n_buckets=10）。
+
+由於是哈希結果，完全「無順序」；不同字串對應到同一桶時會發生碰撞，但對許多模型（尤其是樹模型）來說，這不會造成數值大小的誤解。
+
+為什麼 Hash Bucket 編碼適合？
+維度固定：不管原始類別有多少，最終只有 
+𝑁
+N 個可能值。
+
+無順序誤導：桶編號只是標籤，用於分群／分片，不代表大小。
+
+輕量無套件依賴：只要內建 hash、mod 就能搞定。
+
+適用大基數：當類別種類非常多時，不會像 One-hot 爆維度。
+
+注意
+碰撞（Collision）：不同原始類別可能被 hash 到同一桶，模型必須容忍這點。
+
+桶數 
+𝑁
+N 的選擇：太小碰撞多；太大雖然少，但數值範圍擴大也可能讓某些算法效率下降（尤其在稀疏表示下）。
+
+若你後續要用神經網路，也可以把這個桶號當作 Embedding 的輸入（Embedding(input_dim=N, ...)），一樣是一欄式的做法。
+
+這樣就能達成「像 LabelEncoder 一樣一欄」但不隱含「數值大小或順序」的編碼方式！
