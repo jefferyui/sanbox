@@ -1,0 +1,243 @@
+
+# pip install networkx python-louvain
+import seaborn as sns
+
+import pandas as pd
+import numpy as np
+import networkx as nx
+import community as community_louvain
+import matplotlib.pyplot as plt
+from sklearn.feature_selection import mutual_info_regression, mutual_info_classif
+
+def graph_based_feature_selection_and_plot_full_edges(
+    df,
+    y=None,
+    problem_type='auto',
+    corr_threshold=0.0,
+    verbose=True,
+    plot=True
+):
+    X = df.select_dtypes(include=[np.number])
+    feature_names = X.columns.tolist()
+
+    corr = X.corr().abs()
+
+    G = nx.Graph()
+    for f in feature_names:
+        G.add_node(f)
+    for i, f1 in enumerate(feature_names):
+        for j in range(i+1, len(feature_names)):
+            f2 = feature_names[j]
+            weight = corr.loc[f1, f2]
+            if weight >= corr_threshold:
+                G.add_edge(f1, f2, weight=weight)
+
+    if verbose:
+        print(f"Graph created with {G.number_of_nodes()} nodes and {G.number_of_edges()} edges.")
+
+    partition = community_louvain.best_partition(G, weight='weight')
+
+    communities = {}
+    for feat, comm in partition.items():
+        communities.setdefault(comm, []).append(feat)
+
+    if verbose:
+        print(f"Detected {len(communities)} communities (clusters).")
+
+    if problem_type == 'auto':
+        if y is None:
+            problem_type = 'unsupervised'
+        else:
+            unique_vals = pd.Series(y).nunique()
+            problem_type = 'classification' if unique_vals < 20 else 'regression'
+
+    selected_features = []
+
+    for comm, features in communities.items():
+        if len(features) == 1:
+            selected_features.append(features[0])
+            if verbose:
+                print(f"Community {comm}: single feature {features[0]} selected.")
+            continue
+
+        if y is not None and problem_type != 'unsupervised':
+            if problem_type == 'classification':
+                mi = mutual_info_classif(X[features], y, discrete_features='auto', random_state=42)
+            else:
+                mi = mutual_info_regression(X[features], y, random_state=42)
+            mi_series = pd.Series(mi, index=features)
+            chosen = mi_series.idxmax()
+            if verbose:
+                print(f"Community {comm}: selected {chosen} by max mutual information.")
+        else:
+            sub_corr = corr.loc[features, features]
+            mean_corr = sub_corr.sum(axis=1)
+            chosen = mean_corr.idxmax()
+            if verbose:
+                print(f"Community {comm}: selected {chosen} by max average correlation.")
+
+        selected_features.append(chosen)
+
+    if verbose:
+        print(f"Selected {len(selected_features)} features from {len(feature_names)} original features.")
+
+    if plot:
+        plt.figure(figsize=(14, 10))
+        pos = nx.spring_layout(G, seed=42, k=0.3)
+
+        import matplotlib.cm as cm
+        cmap = cm.get_cmap('tab20', len(communities))
+
+        node_colors = [cmap(partition[node]) for node in G.nodes()]
+        nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=600, alpha=0.9)
+
+        all_weights = np.array([edata['weight'] for _, _, edata in G.edges(data=True)])
+        min_width = 3#1.5
+        max_width = 5.0
+        norm_weights = (all_weights - all_weights.min()) / (all_weights.max() - all_weights.min() + 1e-9)
+        widths = norm_weights * (max_width - min_width) + min_width
+
+        from matplotlib.colors import to_rgba
+        edge_colors = [to_rgba('gray', alpha=3 * w) for w in norm_weights]
+
+        edges = G.edges()
+        nx.draw_networkx_edges(G, pos,
+                               edgelist=edges,
+                               width=widths,
+                               edge_color=edge_colors)
+
+        nx.draw_networkx_labels(G, pos, font_size=10)
+
+        plt.title(f'Full Correlation Graph with Louvain Communities ({len(communities)} groups)')
+        plt.axis('off')
+        plt.show()
+
+    return selected_features
+
+def remove_constant_features(df, threshold=0.0):
+    """
+    移除常數特徵或近似常數特徵
+    threshold = 0 表示完全常數，>0 則為允許的變異比例 (ex: 0.01 = 1%變異)
+    """
+    nunique = df.apply(lambda x: x.nunique(dropna=False))
+    constant_cols = nunique[nunique <= 1].index.tolist()
+
+    # 若設非0 threshold，檢查變異比例
+    if threshold > 0:
+        for col in df.columns:
+            freq = df[col].value_counts(normalize=True, dropna=False).iloc[0]
+            if freq >= (1 - threshold):
+                constant_cols.append(col)
+        constant_cols = list(set(constant_cols))
+
+    df_clean = df.drop(columns=constant_cols)
+    return df_clean, constant_cols
+
+
+def generate_test_dataset(n_samples=1000, seed=42):
+    np.random.seed(seed)
+    X1 = np.random.randn(n_samples)
+    X2 = X1 * 0.95 + np.random.randn(n_samples) * 0.05
+    X3 = np.random.randn(n_samples)
+    X4 = X3 * 0.85 + np.random.randn(n_samples) * 0.15
+    X5 = np.random.randn(n_samples)
+    X6 = X5 * 0.90 + np.random.randn(n_samples) * 0.1
+    X7 = np.random.randn(n_samples)
+    X8 = np.full(n_samples, 3.14)  # constant feature
+    X9 = np.random.randn(n_samples)
+    X10 = X9 * 0.9 + np.random.randn(n_samples) * 0.1
+
+    y_regression = 3*X1 - 2*X3 + 1.5*X5 + np.random.randn(n_samples)*0.5
+    y_classification = (y_regression > y_regression.mean()).astype(int)
+
+    df = pd.DataFrame({
+        'X1': X1, 'X2': X2, 'X3': X3, 'X4': X4, 'X5': X5, 
+        'X6': X6, 'X7': X7, 'X8': X8, 'X9': X9, 'X10': X10
+    })
+
+    return df, y_regression, y_classification
+
+# df, y_reg, y_class = generate_test_dataset()
+df, y, y_class = generate_test_dataset()
+# Step 0: 先移除常數特徵
+X_orig = df.select_dtypes(include=[np.number])
+df, constant_cols = remove_constant_features(X_orig, threshold=0.01)
+
+print(f"Removed constant/near-constant features: {constant_cols}")
+
+
+selected_feats = graph_based_feature_selection_and_plot_full_edges(
+    df, y, corr_threshold=0.0, verbose=True, plot=True
+)
+
+print("Selected features:", selected_feats)
+# 有更快更厲害的方法嗎，一次到位的方法
+
+# 2️⃣ Graph-Based Clustering (非常適合你目前需求)
+# 核心 idea：
+
+# 把 correlation 矩陣轉為 weighted graph (節點: features, 邊: 相關係數)
+
+# 對 graph 做 community detection（如：Louvain、Infomap、Spectral clustering）
+
+# 每個社群內挑選代表特徵（例如用 mutual information + feature importance）
+
+# 優點：
+
+# 可以一次性分群，不需要反覆收斂
+
+# 速度遠快於 hierarchical clustering + iterative search
+
+# 解釋性好（仍保留代表原始特徵）
+
+# 很適合用於高維數據 (>500 features)
+
+
+# 方法	是否一次到位	是否快	解釋性	適用場景
+# PCA	✅	✅	❌	完全消除共線性，適合無解釋性需求
+# Graph Clustering	✅	✅	✅	你目前的場景最佳！
+# mRMR	✅	✅	✅	目標導向選特徵，非常穩定
+# Elastic Net	✅	✅	✅	快速、穩定、適合大多回歸/分類問題
+
+# ✅ 要不要我直接幫你實作：
+# correlation matrix → graph
+
+# Louvain clustering
+
+# 每群挑代表特徵
+
+# 一次性消除 multicollinearity，VIF 自然降到極低
+
+# 太棒了！我立刻幫你寫一個基於 graph community detection (Louvain method) 的一次到位 VIF 降低特徵選擇器。
+
+# 程式說明
+# 用 networkx 建立 feature correlation graph
+
+# 邊權重 = 相關係數絕對值
+
+# 用 python-louvain 做社群偵測 (Louvain)
+
+# 每個社群裡挑與目標相關性最高的特徵作代表（有目標時）
+
+# 沒目標時挑社群內平均相關度最高的特徵
+
+# 回傳選出特徵
+
+# 最後你可用 statsmodels 計算 VIF 驗證效
+
+
+# 小結
+# 一次到位不需要疊代
+
+# 只需設個合理的 corr_threshold (0.5~0.7 之間通常 OK)
+
+# Louvain社群偵測非常快速且穩定
+
+# 選代表時用 mutual info 幫助選對有用特徵
+
+# 這套流程多數真實資料集幾秒鐘就搞定
+
+# 要幫你包成類別化 sklearn 版本或弄報表輸出都沒問題，隨時告訴我！
+
+# 你覺得這方案如何？
+# 需要我幫你測試更大資料集、或帶你用實際VIF做驗證流程嗎？
