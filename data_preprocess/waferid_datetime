@@ -46,3 +46,65 @@ df['WaferID_code'] = le.fit_transform(df['WaferID'])
 from xgboost import XGBClassifier
 model = XGBClassifier().fit(X, y)
 print(model.get_booster().get_score(importance_type='gain'))
+
+
+
+
+######################################
+import pandas as pd
+import numpy as np
+import datetime as dt
+# from ace_tools import display_dataframe_to_user
+
+# Seed for reproducibility
+np.random.seed(42)
+
+n_rows = 500
+
+# Generate wafer IDs
+wafer_ids = [f"W{str(i).zfill(6)}" for i in range(1, n_rows + 1)]
+
+# Generate datetimes (every 30 min with some jitter)
+start_dt = dt.datetime(2025, 1, 1, 0, 0)
+datetimes = [
+    start_dt + dt.timedelta(minutes=30 * i + np.random.randint(-15, 15))
+    for i in range(n_rows)
+]
+
+# Generate lot IDs (10 different lots)
+lot_choices = [f"L{str(i).zfill(3)}" for i in range(1, 11)]
+lot_ids = np.random.choice(lot_choices, size=n_rows)
+
+# Fail probabilities by lot (lots 008 & 009 are "bad")
+fail_prob = np.array([0.05] * n_rows)
+for idx, lot in enumerate(lot_ids):
+    if lot in {"L008", "L009"}:
+        fail_prob[idx] = 0.30
+
+# Generate binary target (1 = fail, 0 = pass)
+targets = np.random.binomial(1, fail_prob)
+
+# Assemble DataFrame
+df = pd.DataFrame(
+    {
+        "wafer_id": wafer_ids,
+        "Datetime": datetimes,
+        "lotid": lot_ids,
+        "target": targets,
+    }
+)
+
+from sklearn.feature_selection import mutual_info_classif
+
+df_enc = df.copy()
+for col in ['wafer_id', 'lotid']:
+    df_enc[col] = df_enc[col].astype('category').cat.codes
+
+df_enc['hour'] = df['Datetime'].dt.hour
+df_enc['dayofweek'] = df['Datetime'].dt.dayofweek
+
+X = df_enc[['wafer_id', 'lotid', 'hour', 'dayofweek']]
+y = df['target']
+
+mi = mutual_info_classif(X, y, discrete_features=True)
+print(dict(zip(X.columns, mi)))
