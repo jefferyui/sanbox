@@ -252,3 +252,114 @@ Frequency Encoding	類別數多，目標變量無關	簡單高效，不會產生
 Hash Encoding	高維類別數據（類別數量非常多，如城市、國家）	高效、固定特徵維度	哈希碰撞可能損失信息
 Embedding Encoding	深度學習，類別數多	稠密表示，適合深度學習的輸入	訓練成本高，不適合簡單場景
 Ordinal Encoding	有明確順序的類別型數據（如教育水平、等級）	保留類別的順序特徵	無法處理無序類別
+
+
+
+#########################################
+import numpy as np
+import pandas as pd
+import torch
+from torch import nn
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics.pairwise import cosine_similarity
+import networkx as nx
+from community import community_louvain  # pip install python-louvain
+
+# --------------------------
+# Step 1: 模擬一個複雜的資料集
+# --------------------------
+np.random.seed(42)
+n_samples = 100
+
+# df = pd.DataFrame({
+#     'age': np.random.randint(20, 60, size=n_samples),
+#     'income': np.random.randint(30000, 120000, size=n_samples),
+#     'gender': np.random.choice(['M', 'F'], size=n_samples),
+#     'city': np.random.choice(['Taipei', 'Kaohsiung', 'Taichung'], size=n_samples),
+#     'ts_t1': np.random.randn(n_samples),
+#     'ts_t2': np.random.randn(n_samples),
+#     'ts_t3': np.random.randn(n_samples),
+#     'ts_t4': np.random.randn(n_samples),
+# })
+df = pd.DataFrame({
+    'age': [25, 45, 35, 60],
+    'income': [30000, 50000, 40000, 70000],
+    'gender': ['M', 'F', 'M', 'F'],
+    'education': ['High School', 'PhD', 'Master', 'Bachelor']
+})
+num_cols = ['age', 'income']
+cat_cols = ['gender', 'education']
+# ts_cols = ['ts_t1', 'ts_t2', 'ts_t3', 'ts_t4']
+
+# --------------------------
+# Step 2: 數值特徵標準化
+# --------------------------
+scaler = StandardScaler()
+num_features = torch.tensor(scaler.fit_transform(df[num_cols]), dtype=torch.float32).T  # [n_cols x n_samples]
+
+# --------------------------
+# Step 3: 類別特徵用 embedding 編碼
+# --------------------------
+embeddings = []
+embedding_dim = 8
+for col in cat_cols:
+    le = LabelEncoder()
+    df[col + '_idx'] = le.fit_transform(df[col])
+    n_categories = df[col + '_idx'].nunique()
+
+    emb = nn.Embedding(num_embeddings=n_categories, embedding_dim=embedding_dim)
+    emb_weights = emb(torch.tensor(df[col + '_idx'].values, dtype=torch.long))
+    embeddings.append(emb_weights.T)
+
+cat_features = torch.cat(embeddings, dim=0)  # [cat_cols_total_dim x n_samples]
+
+# --------------------------
+# Step 4: 時間序列特徵標準化
+# --------------------------
+# ts_features = torch.tensor(scaler.fit_transform(df[ts_cols]), dtype=torch.float32).T
+
+# --------------------------
+# Step 5: 合併所有欄位向量 (每欄位為一個向量)
+# --------------------------
+# feature_vectors = torch.cat([num_features, cat_features, ts_features], dim=0)  # [total_features x n_samples]
+# feature_names = num_cols + cat_cols + ts_cols
+feature_vectors = torch.cat([num_features, cat_features], dim=0)  # [total_features x n_samples]
+feature_names = num_cols + cat_cols
+# --------------------------
+# Step 6: 計算特徵間 cosine similarity
+# --------------------------
+sim_matrix = cosine_similarity(feature_vectors.detach().numpy())
+
+# --------------------------
+# Step 7: 建立 graph 並用 Louvain 分群
+# --------------------------
+threshold = 0.7  # similarity threshold
+G = nx.Graph()
+
+for i, name_i in enumerate(feature_names):
+    G.add_node(name_i)
+
+for i in range(len(feature_names)):
+    for j in range(i + 1, len(feature_names)):
+        sim = sim_matrix[i, j]
+        if sim > threshold:
+            G.add_edge(feature_names[i], feature_names[j], weight=sim)
+
+# --------------------------
+# Step 8: Louvain 分群
+# --------------------------
+partition = community_louvain.best_partition(G, weight='weight')
+
+# 分群結果輸出
+cluster_df = pd.DataFrame({
+    'feature': list(partition.keys()),
+    'group': list(partition.values())
+}).sort_values(by='group')
+
+print(cluster_df)
+# 畫圖
+pos = nx.spring_layout(G, seed=42)
+nx.draw(G, pos, with_labels=True, node_color=[partition.get(n) for n in G.nodes()], cmap=plt.cm.Set3)
+plt.title("Feature Clustering")
+plt.show()
+
