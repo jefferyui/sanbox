@@ -61,3 +61,74 @@ pos = nx.spring_layout(G, seed=42)
 nx.draw(G, pos, with_labels=True, node_color=[partition.get(n) for n in G.nodes()], cmap=plt.cm.Set3)
 plt.title("Feature Clustering")
 plt.show()
+
+
+
+
+#########################
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.metrics.pairwise import cosine_similarity
+import networkx as nx
+import community as community_louvain
+import matplotlib.pyplot as plt
+
+# 範例資料
+df = pd.DataFrame({
+    'age': [25, 45, 35, 60],
+    'income': [30000, 50000, 40000, 70000],
+    'gender': ['M', 'F', 'M', 'F'],
+    'education': ['High School', 'PhD', 'Master', 'Bachelor']
+})
+
+num_cols = ['age', 'income']
+cat_cols = ['gender', 'education']
+
+# 數值特徵標準化，轉為 (n_samples,) 向量
+scaler = StandardScaler()
+num_vecs = [scaler.fit_transform(df[[col]]).flatten() for col in num_cols]
+
+# 類別特徵 OneHotEncoder with sparse_output=True
+ohe = OneHotEncoder(sparse_output=True)
+cat_vecs = []
+for col in cat_cols:
+    oh_sparse = ohe.fit_transform(df[[col]])              # 返回稀疏矩陣
+    oh = oh_sparse.toarray()                              # 轉為密集陣列
+    cat_vecs.append(oh.mean(axis=0))                      # 每欄的平均向量表示整體分布
+
+# 合併特徵向量 (每個欄位為一個向量)
+feature_vectors = num_vecs + cat_vecs
+feature_names = num_cols + cat_cols
+
+# 將向量做成等長矩陣 (padding)
+max_len = max(vec.shape[0] for vec in feature_vectors)
+mat = np.zeros((len(feature_vectors), max_len))
+for i, vec in enumerate(feature_vectors):
+    mat[i, :len(vec)] = vec
+
+# 特徵相似度
+sim_matrix = cosine_similarity(mat)
+
+# 建圖並 Louvain 分群
+G = nx.Graph()
+for i in range(len(feature_names)):
+    for j in range(i + 1, len(feature_names)):
+        if sim_matrix[i, j] > 0.3:  # 可調整 threshold
+            G.add_edge(feature_names[i], feature_names[j], weight=sim_matrix[i, j])
+
+partition = community_louvain.best_partition(G, weight='weight')
+
+# 分群輸出
+print("欄位分群結果:")
+for feat, grp in partition.items():
+    print(f"{feat}: 群組 {grp}")
+
+# 畫圖
+pos = nx.spring_layout(G, seed=42)
+nx.draw(G, pos, with_labels=True,
+        node_color=[partition[n] for n in G.nodes()],
+        cmap=plt.cm.Set3)
+plt.title("Feature Clustering")
+plt.show()
+
