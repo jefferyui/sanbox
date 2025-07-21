@@ -1,0 +1,184 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.datasets import load_diabetes, load_wine, load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import accuracy_score, r2_score
+from sklearn.model_selection import train_test_split
+from SALib.sample import saltelli
+from SALib.analyze import sobol
+import shap
+
+# 设置中文字体
+plt.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
+plt.rcParams["axes.unicode_minus"] = False
+
+# 1. 数据准备（不变）
+def load_data(dataset_name):
+    if dataset_name == "diabetes":
+        data = load_diabetes()
+        X, y = data.data, data.target
+        feature_names = data.feature_names
+        task = "regression"
+    elif dataset_name == "wine":
+        data = load_wine()
+        X, y = data.data, data.target
+        feature_names = data.feature_names
+        task = "classification"
+    elif dataset_name == "breast_cancer":
+        data = load_breast_cancer()
+        X, y = data.data, data.target
+        feature_names = data.feature_names
+        task = "classification"
+    else:
+        raise ValueError("数据集名称错误，可选：diabetes, wine, breast_cancer")
+    return train_test_split(X, y, test_size=0.2, random_state=42), feature_names, task
+
+# 2. 模型训练（不变）
+def train_model(X_train, y_train, task):
+    if task == "classification":
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+    else:
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    return model
+
+# 3. Sobol总指数计算（不变）
+def calculate_sobol_indices(X, y, feature_names, task, sample_size=1024):
+    problem = {
+        'num_vars': X.shape[1],
+        'names': feature_names,
+        'bounds': [[X[:, i].min(), X[:, i].max()] for i in range(X.shape[1])]
+    }
+    samples = saltelli.sample(problem, sample_size, calc_second_order=False)
+    X_sample = samples
+    
+    if task == "classification":
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+    else:
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X, y)
+    y_pred = model.predict(X_sample)
+    
+    si = sobol.analyze(problem, y_pred, calc_second_order=False)
+    return pd.DataFrame({
+        'feature': feature_names,
+        'sobol_total_index': si['ST']
+    }).sort_values(by='sobol_total_index', ascending=False)
+
+# # 4. Shapley值计算（核心修正）
+# def calculate_shap_values(model, X_train, feature_names):
+#     """修正：确保shap_abs_mean是一维数组"""
+#     explainer = shap.TreeExplainer(model)
+#     shap_values = explainer.shap_values(X_train)
+    
+#     # 关键修正：处理多分类问题的SHAP值维度
+#     if isinstance(model, RandomForestClassifier):
+#         # 多分类时shap_values是列表，每个元素为(样本数, 特征数)
+#         if isinstance(shap_values, list):
+#             # 对每个类别的SHAP值取绝对值→按样本平均→按特征平均
+#             shap_abs_per_class = [np.abs(arr) for arr in shap_values]  # 每个类别取绝对值
+#             shap_mean_per_class = [np.mean(arr, axis=0) for arr in shap_abs_per_class]  # 按样本平均
+#             shap_abs_mean = np.mean(shap_mean_per_class, axis=0)  # 按类别平均，得到(特征数,)
+#         else:
+#             # 二分类时shap_values是(样本数, 特征数)
+#             shap_abs_mean = np.mean(np.abs(shap_values), axis=0)
+#     else:
+#         # 回归问题：shap_values是(样本数, 特征数)
+#         shap_abs_mean = np.mean(np.abs(shap_values), axis=0)
+    
+#     # 确保是一维数组
+#     shap_abs_mean = shap_abs_mean.flatten()  # 强制转为一维
+    
+#     # 验证维度匹配
+#     assert shap_abs_mean.ndim == 1, "SHAP值必须是一维数组"
+#     assert len(shap_abs_mean) == len(feature_names), "SHAP值与特征数量不匹配"
+    
+#     return pd.DataFrame({
+#         'feature': feature_names,
+#         'shap_value': shap_abs_mean
+#     }).sort_values(by='shap_value', ascending=False)
+
+# 5. 特征选择性能对比（不变）
+# def compare_feature_selection(X_train, X_test, y_train, y_test, feature_names, task, sobol_df, shap_df):
+#     results = []
+#     max_features = min(10, len(feature_names))
+    
+#     for k in range(1, max_features + 1):
+#         sobol_features = sobol_df['feature'].head(k).tolist()
+#         shap_features = shap_df['feature'].head(k).tolist()
+        
+#         sobol_idx = [feature_names.index(f) for f in sobol_features]
+#         shap_idx = [feature_names.index(f) for f in shap_features]
+        
+#         X_train_sobol, X_test_sobol = X_train[:, sobol_idx], X_test[:, sobol_idx]
+#         X_train_shap, X_test_shap = X_train[:, shap_idx], X_test[:, shap_idx]
+        
+#         if task == "classification":
+#             model_sobol = RandomForestClassifier(n_estimators=100, random_state=42)
+#             model_shap = RandomForestClassifier(n_estimators=100, random_state=42)
+#         else:
+#             model_sobol = RandomForestRegressor(n_estimators=100, random_state=42)
+#             model_shap = RandomForestRegressor(n_estimators=100, random_state=42)
+        
+#         model_sobol.fit(X_train_sobol, y_train)
+#         model_shap.fit(X_train_shap, y_train)
+        
+#         if task == "classification":
+#             score_sobol = accuracy_score(y_test, model_sobol.predict(X_test_sobol))
+#             score_shap = accuracy_score(y_test, model_shap.predict(X_test_shap))
+#             metric = "准确率"
+#         else:
+#             score_sobol = r2_score(y_test, model_sobol.predict(X_test_sobol))
+#             score_shap = r2_score(y_test, model_shap.predict(X_test_shap))
+#             metric = "R²分数"
+        
+#         results.append({
+#             '特征数量': k,
+#             f'Sobol_{metric}': score_sobol,
+#             f'Shapley_{metric}': score_shap
+#         })
+    
+#     return pd.DataFrame(results), metric
+
+
+# 主函数（不变）
+def main():
+    dataset_name = "wine"  # 可切换为'diabetes'或'breast_cancer'
+    (X_train, X_test, y_train, y_test), feature_names, task = load_data(dataset_name)
+    
+    model = train_model(X_train, y_train, task)
+    print(f"基础模型在{dataset_name}数据集上的表现:")
+    if task == "classification":
+        print(f"准确率: {accuracy_score(y_test, model.predict(X_test)):.4f}")
+    else:
+        print(f"R²分数: {r2_score(y_test, model.predict(X_test)):.4f}")
+    
+    print("\n计算Sobol总指数...")
+    sobol_df = calculate_sobol_indices(X_train, y_train, feature_names, task)
+    print("计算Shapley值...")
+    # shap_df = calculate_shap_values(model, X_train, feature_names)
+    
+    print("\nSobol总指数排名（前5）:")
+    print(sobol_df.head())
+    # print("\nShapley值排名（前5）:")
+    # print(shap_df.head())
+    
+    # print("\n对比特征选择性能...")
+    # performance_df, metric = compare_feature_selection(
+    #     X_train, X_test, y_train, y_test, feature_names, task, sobol_df, shap_df
+    # )
+    # print("\n性能对比结果:")
+    # print(performance_df)
+    
+    # visualize_results(sobol_df, shap_df, performance_df, metric, dataset_name)
+
+if __name__ == "__main__":
+    # 安装依赖：pip install salib shap scikit-learn numpy pandas matplotlib seaborn
+    main()
+
+    # 在 Sobol 敏感性分析中，si['ST']中的ST 是 “Total Sobol Index”（总 Sobol 指数）的缩写，表示某个特征及其与所有其他特征的交互作用对模型输出方差的总贡献。
+
+
+# pip install SALib
