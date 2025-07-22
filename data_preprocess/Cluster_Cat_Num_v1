@@ -649,5 +649,128 @@ pos = nx.spring_layout(G, seed=42)
 nx.draw(G, pos, with_labels=True, node_color=[partition.get(n) for n in G.nodes()], cmap=plt.cm.Set3)
 plt.title("Feature Clustering")
 plt.show()
+########################################################
+import pandas as pd
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.pairwise import cosine_similarity
+import networkx as nx
+import community as community_louvain
+import matplotlib.pyplot as plt
+import random
 
+# 固定隨機種子
+torch.manual_seed(42)
+np.random.seed(42)
+random.seed(42)
+
+# 範例資料
+df = pd.DataFrame({
+    'age': [25, 45, 35, 60],
+    'income': [30000, 50000, 40000, 70000],
+    'gender': ['M', 'F', 'M', 'F'],
+    'education': ['High School', 'PhD', 'Master', 'Bachelor']
+})
+
+num_cols = ['age', 'income']
+cat_cols = ['gender', 'education']
+
+# 數值特徵標準化
+scaler = StandardScaler()
+num_vecs = [scaler.fit_transform(df[[col]]).flatten() for col in num_cols]
+
+# Label Encoding 類別欄位
+label_encoders = {}
+encoded_cols = []
+for col in cat_cols:
+    le = LabelEncoder()
+    encoded = le.fit_transform(df[col])
+    label_encoders[col] = le
+    encoded_cols.append(encoded)
+
+# 定義 Embedding + AutoEncoder 模型
+class EmbedAE(nn.Module):
+    def __init__(self, num_categories, embed_dim=8, latent_dim=4):
+        super(EmbedAE, self).__init__()
+        self.embedding = nn.Embedding(num_categories, embed_dim)
+        self.encoder = nn.Sequential(
+            nn.Linear(embed_dim, latent_dim),
+            nn.ReLU()
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, embed_dim),
+            nn.Sigmoid()
+        )
+    def forward(self, x):
+        x = self.embedding(x)
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+embedding_dim = 8
+latent_dim = 4
+cat_vecs = []
+
+for i, col in enumerate(cat_cols):
+    x = torch.tensor(encoded_cols[i], dtype=torch.long)
+
+    model = EmbedAE(num_categories=len(label_encoders[col].classes_), embed_dim=embedding_dim, latent_dim=latent_dim)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    loss_fn = nn.MSELoss()
+
+    # 訓練 AutoEncoder
+    for epoch in range(300):
+        optimizer.zero_grad()
+        x_hat, z = model(x)
+        loss = loss_fn(x_hat, model.embedding(x))
+        loss.backward()
+        optimizer.step()
+
+    with torch.no_grad():
+        _, z = model(x)
+        vec = z.mean(dim=0).numpy()
+        cat_vecs.append(vec)
+
+# 合併所有特徵向量
+feature_vectors = num_vecs + cat_vecs
+feature_names = num_cols + cat_cols
+
+max_len = max(vec.shape[0] for vec in feature_vectors)
+mat = np.zeros((len(feature_vectors), max_len))
+for i, vec in enumerate(feature_vectors):
+    mat[i, :len(vec)] = vec
+
+sim_matrix = cosine_similarity(mat)
+
+# Louvain 分群
+G = nx.Graph()
+for i in range(len(feature_names)):
+    for j in range(i+1, len(feature_names)):
+        if sim_matrix[i,j] > 0.3:
+            G.add_edge(feature_names[i], feature_names[j], weight=sim_matrix[i,j])
+
+partition = community_louvain.best_partition(G, weight='weight')
+
+print("欄位分群結果:")
+for feat, grp in partition.items():
+    print(f"{feat}: 群組 {grp}")
+
+# 畫圖
+pos = nx.spring_layout(G, seed=42)
+nx.draw(G, pos, with_labels=True, node_color=[partition.get(n) for n in G.nodes()], cmap=plt.cm.Set3)
+plt.title("Feature Clustering")
+plt.show()
+
+這個方法的優點：
+Embedding 可捕捉類別間相似性（非序數）
+
+AutoEncoder 壓縮學習去除冗餘、提取主要特徵
+
+Bottleneck 輸出向量穩定且更具代表性
+
+可以用相似度分群，效果比純 Label Encoding 好很多
 
