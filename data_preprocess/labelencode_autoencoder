@@ -116,3 +116,134 @@ Cosine Similarity 計算：
 
 高相關性 (接近 1) 的欄位可能表示包含相似的資訊，低相關性 (接近 0) 表示欄位差異較大。
 若有進一步的需求，可以隨時告訴我！
+###################################################################################
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.optimizers import Adam
+from scipy.spatial.distance import cosine
+import networkx as nx
+from community import community_louvain  # Louvain 聚类
+import random
+
+# 固定随机种子
+random.seed(42)
+np.random.seed(42)
+
+# 1. 构建示例数据
+df = pd.DataFrame({
+    'age': np.random.randint(18, 70, size=100),  # 数值型
+    'income': np.random.normal(50000, 15000, size=100),  # 数值型
+    'gender': np.random.choice(['M', 'F'], size=100),  # 类别型
+    'education': np.random.choice(['highschool', 'bachelor', 'master', 'phd'], size=100),  # 类别型
+    'region': np.random.choice(['north', 'south', 'east', 'west'], size=100),  # 类别型
+})
+
+# 2. 区分数据类型
+categorical_cols = df.select_dtypes(include=['object']).columns.tolist()  # 类别字段
+numerical_cols = df.select_dtypes(exclude=['object']).columns.tolist()  # 数值字段
+
+# 3. 类别字段编码
+label_encoders = {}
+for col in categorical_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+    label_encoders[col] = le
+
+# 4. 数值字段标准化
+scaler = StandardScaler()
+df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+
+# 5. 转置数据矩阵：变为 (特征数量, 样本数量)
+processed_data = df.T.values
+
+# 6. 构建 AutoEncoder 模型
+num_features = processed_data.shape[1]  # 每个字段都有相同的样本数量
+input_dim = num_features
+encoding_dim = 2  # 嵌入维度
+
+# AutoEncoder 架构
+input_layer = Input(shape=(input_dim,))
+encoder = Dense(encoding_dim, activation="relu")(input_layer)
+decoder = Dense(input_dim, activation="sigmoid")(encoder)
+
+autoencoder = Model(inputs=input_layer, outputs=decoder)
+encoder_model = Model(inputs=input_layer, outputs=encoder)
+
+# 编译 AutoEncoder
+autoencoder.compile(optimizer=Adam(learning_rate=0.01), loss="mse")
+
+# 7. 训练 AutoEncoder
+autoencoder.fit(processed_data, processed_data, epochs=100, batch_size=2, shuffle=True, verbose=0)
+
+# 提取嵌入表示
+feature_embeddings = encoder_model.predict(processed_data)
+
+# 8. 计算字段之间的 Cosine Similarity 矩阵
+num_columns = feature_embeddings.shape[0]
+similarity_matrix = np.zeros((num_columns, num_columns))
+
+for i in range(num_columns):
+    for j in range(num_columns):
+        similarity_matrix[i, j] = 1 - cosine(feature_embeddings[i], feature_embeddings[j])  # 1 - cosine distance
+
+similarity_df = pd.DataFrame(similarity_matrix, columns=df.columns, index=df.columns)
+
+# 输出 Cosine Similarity 矩阵
+print("Cosine Similarity Matrix (字段间相似度):")
+print(similarity_df)
+
+# 9. 基于相似性构建图并进行 Louvain 聚类
+# 将相似度矩阵转换为图
+graph = nx.Graph()
+for i in range(num_columns):
+    for j in range(i + 1, num_columns):
+        # 只加入相似度较高的边
+        if similarity_matrix[i, j] > 0.7:  # 设定相似度阈值
+            graph.add_edge(df.columns[i], df.columns[j], weight=similarity_matrix[i, j])
+
+# 使用 Louvain 聚类算法
+partition = community_louvain.best_partition(graph)
+
+# 10. 聚类结果整合并从每个类中选择一个字段作为代表
+clusters = {}
+for field, cluster_id in partition.items():
+    if cluster_id not in clusters:
+        clusters[cluster_id] = []
+    clusters[cluster_id].append(field)
+
+# 打印聚类结果
+print("\nLouvain Clustering Results (字段聚类):")
+for cluster_id, fields in clusters.items():
+    print(f"Cluster {cluster_id}: {fields}")
+
+# 从每个聚类中随机选择一个字段作为代表
+representative_fields = [random.choice(fields) for fields in clusters.values()]
+print("\nSelected Representative Fields for Modeling:")
+print(representative_fields)
+
+# 11. 模型训练（基于代表字段）
+# 示例：使用选出的代表字段（子集）训练一个假设模型
+subset_data = df[representative_fields]
+
+# 样例训练流程（假设输出为一个二分类任务）
+# 为简单说明，这里创建一个虚拟的目标变量
+target = np.random.choice([0, 1], size=df.shape[0])
+
+# 划分训练集和测试集
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(subset_data, target, test_size=0.2, random_state=42)
+
+# 训练一个简单的逻辑回归模型
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
+clf = LogisticRegression()
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+
+# 输出模型性能
+print("\nModel Performance:")
+print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
