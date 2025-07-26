@@ -1,0 +1,119 @@
+import pandas as pd
+from scipy.stats import chi2_contingency
+import numpy as np
+from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
+from scipy.spatial.distance import squareform
+import matplotlib.pyplot as plt
+
+# 定義函數計算 Cramér's V，忽略 NaN 值
+def cramers_V(contingency_table):
+    chi2 = chi2_contingency(contingency_table)[0]
+    n = contingency_table.sum().sum()
+    min_dim = min(contingency_table.shape) - 1
+    return np.sqrt(chi2 / (n * min_dim))
+
+def safe_cramers_V(series1, series2):
+    # 刪除 NaN 值
+    valid_idx = ~(series1.isna() | series2.isna())
+    series1_valid = series1[valid_idx]
+    series2_valid = series2[valid_idx]
+    
+    if len(series1_valid) < 2 or len(series2_valid) < 2:  # 至少需要 2 個不同的值
+        return 0
+    
+    contingency_table = pd.crosstab(series1_valid, series2_valid)
+    return cramers_V(contingency_table)
+
+def safe_cramers_V(series1, series2):
+    # 刪除 NaN 值
+    valid_idx = ~(series1.isna() | series2.isna())
+    series1_valid = series1[valid_idx]
+    series2_valid = series2[valid_idx]
+    
+    if len(series1_valid) < 2 or len(series2_valid) < 2:  # 至少需要 2 個不同的值
+        return 0
+    
+    contingency_table = pd.crosstab(series1_valid, series2_valid)
+    
+    # 檢查 contingency table 的維度
+    if contingency_table.shape[0] == 1 or contingency_table.shape[1] == 1:
+        return 0
+    
+    chi2 = chi2_contingency(contingency_table)[0]
+    n = contingency_table.sum().sum()
+    min_dim = min(contingency_table.shape) - 1
+    return np.sqrt(chi2 / (n * min_dim))
+
+# 假設有以下的類別型數據，含有 NaN 值
+# data = pd.DataFrame({
+#     'A': np.random.choice(['a1', 'a2', 'a3', np.nan], 100),
+#     'B': np.random.choice(['b1', 'b2', np.nan], 100),
+#     'C': np.random.choice(['c1', 'c2', 'c3'], 100),
+#     'D': np.random.choice(['d1', 'd2', np.nan], 100),
+#     'E': np.random.choice(['e1', 'e2', 'e3'], 100),
+#     'F': np.random.choice(['f1', 'f2'], 100)
+# })
+
+# data = pd.DataFrame({
+#     'Gender':    ['M', 'F', 'F', 'M', 'F', 'M', np.nan, 'F'],
+#     'Education': ['HS', np.nan, 'HS', 'MS', 'PhD', 'MS', 'HS', 'PhD'],
+#     'Choice':    ['A', 'B', 'A', 'B', np.nan, 'A', 'B', 'B'],
+#     'Region':    ['North', 'South', 'South', 'North', 'East', 'East', 'West', np.nan]
+# })
+
+data = pd.DataFrame({
+    'Gender':    ['M', 'F', 'F', 'M', 'F', 'M', 'M', 'F'],
+    'Education': ['HS', 'PhD', 'HS', 'MS', 'PhD', 'MS', 'HS', 'PhD'],
+    'Choice':    ['A', 'B', 'A', 'B', 'A', 'A', 'B', 'B'],
+    'Region':    ['North', 'South', 'South', 'North', 'East', 'East', 'West', 'South']
+})
+
+# 計算 Cramér's V 矩陣，忽略 NaN 值
+columns = data.columns
+cramers_v_matrix = np.zeros((len(columns), len(columns)))
+
+for i in range(len(columns)):
+    for j in range(i, len(columns)):
+        if i == j:
+            cramers_v_matrix[i, j] = 1
+        else:
+            cramers_v = safe_cramers_V(data[columns[i]], data[columns[j]])
+            cramers_v_matrix[i, j] = cramers_v
+            cramers_v_matrix[j, i] = cramers_v
+
+# 轉換為距離矩陣
+distance_matrix = 1 - cramers_v_matrix
+
+# 將 squareform 的 distance matrix 轉換為 condensed 形式
+condensed_distance_matrix = squareform(distance_matrix, checks=False)
+
+# 進行層次聚類
+Z = linkage(condensed_distance_matrix, method='ward')
+
+# 繪製樹狀圖
+plt.figure(figsize=(10, 7))
+dendrogram(Z, labels=columns)
+plt.title('Hierarchical Clustering Dendrogram')
+plt.show()
+
+# 使用距離閾值決定聚類數
+distance_threshold = 0.5
+cluster_labels = fcluster(Z, t=distance_threshold, criterion='distance')
+
+# 將欄位分組並選取代表
+cluster_dict = {}
+for i, label in enumerate(cluster_labels):
+    if label not in cluster_dict:
+        cluster_dict[label] = []
+    cluster_dict[label].append(columns[i])
+
+# 選取每組的第一個欄位作為代表
+representatives = {label: cluster[0] for label, cluster in cluster_dict.items()}
+
+# 建立結果 DataFrame
+result_df = pd.DataFrame({
+    '代表': [representatives[label] for label in cluster_dict.keys()],
+    '群組': [', '.join(cluster) for cluster in cluster_dict.values()]
+})
+
+print(result_df)
