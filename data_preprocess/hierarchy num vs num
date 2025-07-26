@@ -1,0 +1,91 @@
+import pandas as pd
+import numpy as np
+from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
+import matplotlib.pyplot as plt
+from sklearn.metrics import silhouette_score
+from scipy.spatial.distance import squareform
+
+# 產生數據，並引入 NaN 值
+np.random.seed(0)
+n_samples = 100
+n_features = 6
+data = pd.DataFrame(
+    np.random.rand(n_samples, n_features),
+    columns=[f'Feature {i+1}' for i in range(n_features)]
+)
+
+# 隨機加入 NaN 值
+data.iloc[:, 0] = np.where(np.random.rand(n_samples) > 0.8, np.nan, data.iloc[:, 0])
+data.iloc[:, 2] = np.where(np.random.rand(n_samples) > 0.9, np.nan, data.iloc[:, 2])
+
+# 1. 計算相關係數矩陣，忽略 NaN 值
+# 使用 df.corr() 的 min_periods 參數：若有充足非 NaN 資料點，則計算 correlation
+corr_matrix = data.corr(min_periods=1)  # 若某兩列資料不足以計算，會回傳 NaN
+
+# 2. 將相關係數矩陣轉換為距離矩陣
+# 相關距離 = 1 - |相關係數|，因為相關係數越接近 1 表示越相似（需要取絕對值）
+distance_matrix = 1 - corr_matrix.abs()
+
+# 填補 NaN 距離值（若欄位數據不足無法計算相關性）
+# 用 1.0 表示最遠距離 (完全不相似)
+distance_matrix = distance_matrix.fillna(1.0)
+
+# 3. 將距離矩陣轉換為 condensed 形式
+condensed_distance_matrix = squareform(distance_matrix, checks=False)
+
+# 4. 進行層次聚類
+Z = linkage(condensed_distance_matrix, method='ward')
+
+# 繪製樹狀圖
+plt.figure(figsize=(10, 7))
+dendrogram(Z, labels=corr_matrix.columns)
+plt.title('Hierarchical Clustering Dendrogram (Using Correlation)')
+plt.show()
+
+# 5. 使用 Silhouette Coefficient 自動選擇最佳距離閾值
+silhouette_scores = []
+distance_thresholds = np.linspace(0, 2, 10)  # 聚類的閾值範圍
+
+for threshold in distance_thresholds:
+    cluster_labels = fcluster(Z, t=threshold, criterion='distance')
+    n_labels = len(np.unique(cluster_labels))
+    
+    if n_labels > 1 and n_labels < n_features:  # 至少有 2 群，且不超過特徵數
+        score = silhouette_score(distance_matrix, cluster_labels, metric='precomputed')
+    else:
+        score = np.nan  # 若聚類數不符合要求，設為 NaN
+        
+    silhouette_scores.append(score)
+
+plt.figure(figsize=(8, 6))
+plt.plot(distance_thresholds, silhouette_scores, marker='o')
+plt.title('Silhouette Coefficient vs Distance Threshold')
+plt.xlabel('Distance Threshold')
+plt.ylabel('Silhouette Coefficient')
+plt.show()
+
+# 6. 找到最佳距離閾值
+best_threshold = distance_thresholds[np.nanargmax(silhouette_scores)]
+print(f"最佳距離閾值: {best_threshold}")
+
+# 根據最佳距離閾值，生成聚類結果
+cluster_labels = fcluster(Z, t=best_threshold, criterion='distance')
+
+# 7. 分群並選取每組的代表
+cluster_dict = {}
+for i, label in enumerate(cluster_labels):
+    if label not in cluster_dict:
+        cluster_dict[label] = []
+    cluster_dict[label].append(corr_matrix.columns[i])
+
+# 選取每組的第一個欄位作為代表
+representatives = {label: cluster[0] for label, cluster in cluster_dict.items()}
+
+# 8. 建立結果 DataFrame
+result_df = pd.DataFrame({
+    '代表': [representatives[label] for label in cluster_dict.keys()],
+    '群組': [', '.join(cluster) for cluster in cluster_dict.values()]
+})
+
+print("\n分群及代表的結果：")
+print(result_df)
