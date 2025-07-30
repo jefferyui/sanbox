@@ -1,0 +1,80 @@
+import pandas as pd
+
+df = pd.DataFrame({
+    'gender': ['M', 'F', 'F', 'M', 'M'],
+    'age_group': ['young', 'adult', 'adult', 'senior', 'young'],
+    'income': ['low', 'medium', 'medium', 'high', 'low'],
+    'purchase': ['yes', 'no', 'no', 'yes', 'yes']
+})
+df_T = df.drop(columns=['cluster'], errors='ignore').T.reset_index()
+df_T.columns = ['feature'] + [f'record_{i}' for i in range(1, df.shape[0]+1)]
+
+import kmodes
+from sklearn.cluster import AgglomerativeClustering
+
+X = df_T.drop(columns=['feature'])
+gower_dist = gower.gower_matrix(X)
+
+# model = AgglomerativeClustering(n_clusters=2, affinity='precomputed', linkage='average')
+model = AgglomerativeClustering(
+    n_clusters=2,
+    metric='precomputed', 
+    linkage='average'
+)
+labels = model.fit_predict(gower_dist)
+
+df_T['cluster'] = labels
+print(df_T[['feature', 'cluster']])
+
+from kmodes.kmodes import KModes
+
+# 只保留 values（每個欄位是一筆 row 資料）
+X = df_T.drop(columns=['feature']).to_numpy()
+
+km = KModes(n_clusters=2, init='Huang', n_init=5, verbose=1)
+clusters = km.fit_predict(X)
+
+df_T['cluster'] = clusters
+print(df_T[['feature', 'cluster']])
+#####################################################################################
+
+import pandas as pd
+from sklearn.mixture import GaussianMixture
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+# 假設原始資料如下（列是樣本，欄是特徵）
+# df = pd.DataFrame({
+#     'gender': ['M', 'F', 'M', 'F'],
+#     'age': [25, 32, 40, 29],
+#     'income': [40000, 50000, 60000, 45000],
+#     'job': ['engineer', 'teacher', 'doctor', 'nurse']
+# })
+df = pd.DataFrame({
+    'gender': ['M', 'F', 'F', 'M', 'M'],
+    'age_group': ['young', 'adult', 'adult', 'senior', 'young'],
+    'income': ['low', 'medium', 'medium', 'high', 'low'],
+    'purchase': ['yes', 'no', 'no', 'yes', 'yes']
+})
+# --- 步驟 1：轉置，準備對欄位做聚類 ---
+df_T = df.T.reset_index()
+df_T.columns = ['feature'] + [f'person_{i}' for i in range(len(df))]
+
+# --- 步驟 2：將每個欄位轉為數值向量 ---
+# 類別欄位先 One-Hot 再轉置
+df_enc = df.copy()
+for col in df_enc.columns:
+    if df_enc[col].dtype == 'object':
+        df_enc[col] = df_enc[col].astype('category').cat.codes
+
+df_T_num = df_enc.T
+
+# --- 步驟 3：標準化 ---
+scaler = StandardScaler()
+X = scaler.fit_transform(df_T_num)
+
+# --- 步驟 4：使用 GMM 聚類欄位 ---
+gmm = GaussianMixture(n_components=2, random_state=42)
+labels = gmm.fit_predict(X)
+
+df_T_num['cluster'] = labels
+print(df_T_num)
