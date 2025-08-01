@@ -61,3 +61,17 @@ sns.heatmap(results.astype(float), annot=True, fmt=".2f", cmap="coolwarm", squar
 plt.title("Adjusted Cramér’s V Heatmap (Class Count + Entropy Corrected)")
 plt.tight_layout()
 plt.show()
+
+
+####################################
+是否考量類別數量：
+
+間接影響：Cramér’s V 通過 \text{min}(k-1, r-1)min(k−1,r−1) 來將卡方值正規化，因此類別數的大小會影響結果。例如，如果行列中類別數量差異很大，最大可能的 \chi^2χ 
+2
+  值也會受到限制，進而影響 V 值。
+不直接考量差異：Cramér’s V 並不專門針對「兩類別數量是否相等」進行評估，它只考慮類別之間的關聯性強弱。
+實際應用時的注意：
+
+當兩個變數的類別數非常不平衡（例如，一個變數只有兩類，另一個有 10 類），這可能會影響解釋，但不會影響 Cramér’s V 的計算機制。
+若要專門探討類別數差異的影響，則需進一步分析數據結構，而非僅依賴 Cramér’s V。
+
