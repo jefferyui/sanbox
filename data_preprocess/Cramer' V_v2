@@ -1,0 +1,63 @@
+import numpy as np
+import pandas as pd
+from scipy.stats import chi2_contingency
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# ======== 1. 產生假資料集（類別數和分布不同） ========
+np.random.seed(42)
+
+n = 500
+
+df = pd.DataFrame({
+    'gender': np.random.choice(['Male', 'Female'], size=n, p=[0.4, 0.6]),
+    'age_group': np.random.choice(['18-25', '26-35', '36-45', '46+'], size=n, p=[0.2, 0.4, 0.3, 0.1]),
+    'product_type': np.random.choice(['A', 'B', 'C', 'D', 'E', 'F'], size=n, p=[0.05, 0.1, 0.2, 0.3, 0.25, 0.1]),
+    'region': np.random.choice(['North', 'South', 'East', 'West'], size=n, p=[0.2, 0.3, 0.25, 0.25]),
+    'decision': np.random.choice(['Buy', 'Maybe', 'Not Buy'], size=n, p=[0.3, 0.4, 0.3])
+})
+
+# ======== 2. Cramér’s V + 類別數差異 + 分布熵調整 ========
+def normalized_entropy(series):
+    freq = series.value_counts(normalize=True)
+    entropy = -(freq * np.log2(freq)).sum()
+    max_entropy = np.log2(len(freq))
+    return entropy / max_entropy if max_entropy > 0 else 0
+
+def cramer_v_entropy_adjusted(x, y):
+    confusion_matrix = pd.crosstab(x, y)
+    chi2, _, _, _ = chi2_contingency(confusion_matrix)
+    n = confusion_matrix.sum().sum()
+    r, c = confusion_matrix.shape
+    k = min(r, c)
+
+    v = np.sqrt(chi2 / (n * (k - 1))) if k > 1 else 0
+
+    # 類別數差異懲罰
+    class_diff = abs(r - c) / max(r, c) if max(r, c) > 0 else 0
+    penalty_class = 1 - class_diff
+
+    # 分布熵懲罰
+    Hx = normalized_entropy(x)
+    Hy = normalized_entropy(y)
+    penalty_entropy = min(Hx, Hy)
+
+    return v * penalty_class * penalty_entropy
+
+# ======== 3. 建立欄位對欄位的關聯矩陣 ========
+cols = df.columns
+results = pd.DataFrame(index=cols, columns=cols, dtype=float)
+
+for col1 in cols:
+    for col2 in cols:
+        if col1 == col2:
+            results.loc[col1, col2] = 1.0
+        else:
+            results.loc[col1, col2] = cramer_v_entropy_adjusted(df[col1], df[col2])
+
+# ======== 4. 顯示熱力圖 ========
+plt.figure(figsize=(8, 6))
+sns.heatmap(results.astype(float), annot=True, fmt=".2f", cmap="coolwarm", square=True)
+plt.title("Adjusted Cramér’s V Heatmap (Class Count + Entropy Corrected)")
+plt.tight_layout()
+plt.show()
