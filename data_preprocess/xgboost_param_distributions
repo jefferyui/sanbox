@@ -311,3 +311,13 @@ test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
 print("\nModel Performance:")
 print(f"Train R²: {train_r2:.4f} | Validate R²: {valid_r2:.4f} | Test R²: {test_r2:.4f}")
 print(f"Train RMSE: {train_rmse:.4f} | Validate RMSE: {valid_rmse:.4f} | Test RMSE: {test_rmse:.4f}")
+
+8. 正則化對泛化能力影響的測試
+方式：
+觀察不同的正則化參數對模型性能的影響，例如：
+
+L2 正則化（Ridge Regression）
+減少模型權重的幅度，防止模型過擬合。
+L1 正則化（Lasso Regression）
+強制某些權重為零，進行特徵選擇，減少模型複雜度。
+通過正則化的方法可以有效提升泛化能力，但過強的正則化可能導致欠擬合。
