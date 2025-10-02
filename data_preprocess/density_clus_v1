@@ -106,6 +106,13 @@ def run_meanshift(X):
 labels_ms, mem_ms, time_ms = run_with_memory(run_meanshift, X)
 print(f"MeanShift (DENCLUE): clusters={len(set(labels_ms))}, mem={mem_ms:.2f} MiB, time={time_ms:.2f} sec")
 
+def lof(X):
+    model = LocalOutlierFactor(n_neighbors=10, contamination='auto')
+    return lof.fit_predict(X_1d)
+
+labels_ms, mem_ms, time_ms = run_with_memory(run_meanshift, X)
+print(f"lof: clusters={len(set(labels_ms))}, mem={mem_ms:.2f} MiB, time={time_ms:.2f} sec")
+
 # --- 畫圖 (取前5000筆避免太擠) ---
 plt.figure(figsize=(12, 4))
 for i, (labels, title) in enumerate([
@@ -117,3 +124,4 @@ for i, (labels, title) in enumerate([
     plt.scatter(X[:5000, 0], X[:5000, 1], c=labels[:5000], cmap="rainbow", s=5)
     plt.title(title)
 plt.show()
+
