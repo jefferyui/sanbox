@@ -591,3 +591,125 @@ print("="*30)
 # 可視化 KAN (可選)
 # model.plot() 
 # plt.show()
+#######################################
+import torch
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler
+from sklearn.metrics import r2_score
+from kan import KAN
+import matplotlib.pyplot as plt
+
+# ==========================================
+# 1. 生成資料 (保持與之前相同的邏輯)
+# ==========================================
+np.random.seed(42)
+n_samples = 1000
+
+data = {
+    'Material': np.random.choice(['Wood', 'Metal', 'Plastic'], n_samples),
+    'Quality': np.random.choice(['Low', 'Medium', 'High'], n_samples),
+    'Size': np.random.uniform(1, 10, n_samples)
+}
+df = pd.DataFrame(data)
+
+# 真實價格函數
+def true_price_function(row):
+    base_price = 0
+    # 注意這裡的價格是非單調的，考驗模型處理 Label 的能力
+    if row['Material'] == 'Wood': base_price += 50
+    elif row['Material'] == 'Metal': base_price += 100
+    elif row['Material'] == 'Plastic': base_price += 20
+    
+    multiplier = 1.0
+    if row['Quality'] == 'Low': multiplier = 0.8
+    elif row['Quality'] == 'Medium': multiplier = 1.0
+    elif row['Quality'] == 'High': multiplier = 1.5
+    
+    return (base_price * multiplier) + (row['Size'] ** 2) + np.random.normal(0, 5)
+
+df['Price'] = df.apply(true_price_function, axis=1)
+
+# ==========================================
+# 2. 特徵工程 (改用 Label/Ordinal Encoding)
+# ==========================================
+
+X = df[['Material', 'Quality', 'Size']]
+y = df['Price'].values
+
+# A. 區分連續與類別特徵
+cat_features = ['Material', 'Quality']
+cont_features = ['Size']
+
+# B. 使用 OrdinalEncoder (即 Label Encoding)
+# 這會將字串轉換為 0, 1, 2...
+ordinal_encoder = OrdinalEncoder()
+X_cat_encoded = ordinal_encoder.fit_transform(X[cat_features])
+
+# C. 合併特徵
+# 現在 Material 是一欄 (0,1,2)，Quality 是一欄 (0,1,2)，Size 是一欄
+X_combined = np.hstack([X_cat_encoded, X[cont_features].values])
+
+# D. 正規化 (Normalization) - 絕對關鍵步驟！
+# 我們必須將 0,1,2 這樣的整數映射到 KAN 的工作區間 [-1, 1]
+# 如果沒有這步，Label Encoding 的效果會極差
+scaler = MinMaxScaler(feature_range=(-1, 1))
+X_scaled = scaler.fit_transform(X_combined)
+
+# 準備 PyTorch 資料集
+train_inputs, test_inputs, train_label, test_label = train_test_split(
+    torch.tensor(X_scaled, dtype=torch.float32),
+    torch.tensor(y, dtype=torch.float32).unsqueeze(1),
+    test_size=0.2,
+    random_state=42
+)
+
+dataset = {
+    'train_input': train_inputs,
+    'train_label': train_label,
+    'test_input': test_inputs,
+    'test_label': test_label
+}
+
+# ==========================================
+# 3. 建立 KAN 模型
+# ==========================================
+
+# 輸入維度現在變小了：
+# 1 (Material) + 1 (Quality) + 1 (Size) = 3
+input_dim = X_scaled.shape[1] 
+output_dim = 1
+
+# 設定 KAN
+# 這裡 grid 可以稍微設大一點 (例如 8 或 10)
+# 因為模型需要用單一函數去擬合離散的跳躍點 (例如從 input=-1 到 input=0 價格劇烈變化)
+model = KAN(width=[input_dim, 5, output_dim], grid=10, k=3, seed=42)
+
+print(f"輸入特徵維度: {input_dim}") 
+# 這裡會印出 3，若是 One-Hot 則會是 ~7
+
+print("\n--- 開始訓練 (Label Encoding 版本) ---")
+# 訓練
+results = model.fit(dataset, opt="LBFGS", steps=20, lamb=0.01)
+
+# ==========================================
+# 4. 評估與觀察
+# ==========================================
+
+pred_train = model(dataset['train_input']).detach().numpy()
+pred_test = model(dataset['test_input']).detach().numpy()
+y_train = dataset['train_label'].detach().numpy()
+y_test = dataset['test_label'].detach().numpy()
+
+r2_train = r2_score(y_train, pred_train)
+r2_test = r2_score(y_test, pred_test)
+
+print("\n" + "="*30)
+print(f"訓練集 R-squared: {r2_train:.4f}")
+print(f"測試集 R-squared: {r2_test:.4f}")
+print("="*30)
+
+# 可選：如果您想看模型如何處理 Label Encode 的非線性關係
+# model.plot()
+# plt.show()
