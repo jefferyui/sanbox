@@ -465,3 +465,129 @@ with torch.no_grad():
     r2 = r2_score(y_test_original, y_pred_original)
 
 print(f"\nFinal R-squared (One-Hot): {r2:.4f}")
+
+
+##########
+import torch
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
+from sklearn.metrics import r2_score
+from kan import KAN
+import matplotlib.pyplot as plt
+
+# ==========================================
+# 1. 生成模擬資料 (類別型輸入 -> 連續型輸出)
+# ==========================================
+np.random.seed(42)
+n_samples = 1000
+
+# 建立兩個類別特徵
+data = {
+    'Material': np.random.choice(['Wood', 'Metal', 'Plastic'], n_samples),
+    'Quality': np.random.choice(['Low', 'Medium', 'High'], n_samples),
+    'Size': np.random.uniform(1, 10, n_samples)  # 混合一個連續變數增加真實感
+}
+df = pd.DataFrame(data)
+
+# 定義真實的生成函數 (為了測試模型能力)
+# 假設：Metal 最貴，High Quality 加成最高，Size 呈非線性關係
+def true_price_function(row):
+    base_price = 0
+    if row['Material'] == 'Wood': base_price += 50
+    elif row['Material'] == 'Metal': base_price += 100
+    elif row['Material'] == 'Plastic': base_price += 20
+    
+    multiplier = 1.0
+    if row['Quality'] == 'Low': multiplier = 0.8
+    elif row['Quality'] == 'Medium': multiplier = 1.0
+    elif row['Quality'] == 'High': multiplier = 1.5
+    
+    # 加上 Size 的非線性關係 (Size^2) 和一些隨機雜訊
+    return (base_price * multiplier) + (row['Size'] ** 2) + np.random.normal(0, 5)
+
+df['Price'] = df.apply(true_price_function, axis=1)
+
+print("--- 原始資料預覽 ---")
+print(df.head())
+
+# ==========================================
+# 2. 特徵工程 (關鍵步驟！)
+# ==========================================
+
+# A. 分離特徵與目標
+X = df[['Material', 'Quality', 'Size']]
+y = df['Price'].values
+
+# B. 類別特徵編碼 (One-Hot Encoding)
+# KAN 需要數值輸入，One-Hot 是最保留資訊的方法
+encoder = OneHotEncoder(sparse_output=False)
+X_encoded = encoder.fit_transform(X[['Material', 'Quality']])
+feature_names_encoded = encoder.get_feature_names_out(['Material', 'Quality'])
+
+# 將編碼後的特徵與原始連續特徵合併
+X_final = np.hstack([X_encoded, X[['Size']].values])
+all_feature_names = list(feature_names_encoded) + ['Size']
+
+# C. 正規化 (Normalization) - KAN 對輸入範圍非常敏感！
+# KAN 的 B-Spline 網格通常定義在 [-1, 1] 之間，所以將輸入縮放到此範圍至關重要
+scaler = MinMaxScaler(feature_range=(-1, 1))
+X_scaled = scaler.fit_transform(X_final)
+
+# D. 轉換為 PyTorch Tensor
+# 注意：pykan 需要 dataset 是一個字典格式
+train_inputs, test_inputs, train_label, test_label = train_test_split(
+    torch.tensor(X_scaled, dtype=torch.float32),
+    torch.tensor(y, dtype=torch.float32).unsqueeze(1), # 變成 [N, 1] 形狀
+    test_size=0.2,
+    random_state=42
+)
+
+dataset = {
+    'train_input': train_inputs,
+    'train_label': train_label,
+    'test_input': test_inputs,
+    'test_label': test_label
+}
+
+# ==========================================
+# 3. 建立與訓練 KAN 模型
+# ==========================================
+
+input_dim = X_final.shape[1]  # 輸入維度 (One-hot 後的特徵數)
+output_dim = 1                # 輸出維度 (預測價格)
+
+# 初始化 KAN
+# width: [輸入層, 隱藏層, 輸出層]
+# grid: 網格大小。數值越大，擬合能力越強 (但也越容易過擬合)。建議從 5 開始。
+# k: Spline 的階數，通常設為 3 (Cubic spline)
+model = KAN(width=[input_dim, 5, output_dim], grid=5, k=3, seed=42)
+
+print("\n--- 開始訓練 ---")
+# 使用 LBFGS 優化器，通常在科學計算/回歸問題上比 Adam 收斂得更好、更精確
+# steps: 訓練步數
+results = model.fit(dataset, opt="LBFGS", steps=20, lamb=0.01, lamb_entropy=10.0)
+
+# ==========================================
+# 4. 評估 R-squared
+# ==========================================
+
+# 預測
+pred_train = model(dataset['train_input']).detach().numpy()
+pred_test = model(dataset['test_input']).detach().numpy()
+y_train = dataset['train_label'].detach().numpy()
+y_test = dataset['test_label'].detach().numpy()
+
+# 計算 R2
+r2_train = r2_score(y_train, pred_train)
+r2_test = r2_score(y_test, pred_test)
+
+print("\n" + "="*30)
+print(f"訓練集 R-squared: {r2_train:.4f}")
+print(f"測試集 R-squared: {r2_test:.4f}")
+print("="*30)
+
+# 可視化 KAN (可選)
+# model.plot() 
+# plt.show()
