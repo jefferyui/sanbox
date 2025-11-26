@@ -219,3 +219,249 @@ with torch.no_grad():
 
 print(f"Titanic Model Accuracy: {accuracy * 100:.2f}%")
 print("(Note: Titanic is a classification task, so we use Accuracy instead of R-squared)")
+
+##################
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score
+
+# ==========================================
+# 1. 產生模擬數據 (二手車數據)
+# ==========================================
+# 假設數據：品牌, 車型, 產地 -> 價格
+data = {
+    'Brand': ['Toyota', 'BMW', 'Honda', 'Ferrari', 'Toyota', 'BMW', 'Honda', 'Ferrari'] * 100,
+    'Type':  ['Sedan', 'SUV', 'Sedan', 'Sport', 'SUV', 'Sedan', 'SUV', 'Sport'] * 100,
+    'Origin':['Japan', 'Germany', 'Japan', 'Italy', 'Japan', 'Germany', 'Japan', 'Italy'] * 100,
+    # 價格邏輯 (模擬)：Ferrari > BMW > Toyota/Honda, Sport > SUV > Sedan
+    'Price': [20000, 60000, 22000, 250000, 25000, 55000, 28000, 260000] * 100
+}
+df = pd.DataFrame(data)
+
+# 加入一些隨機雜訊，讓回歸任務真實一點
+df['Price'] = df['Price'] + np.random.normal(0, 2000, len(df))
+
+# ==========================================
+# 2. 數據預處理 (Label Encoding)
+# ==========================================
+# Embedding 層需要輸入 "索引 (Index)" (0, 1, 2...)，而不是 One-Hot
+categorical_cols = ['Brand', 'Type', 'Origin']
+label_encoders = {}
+
+for col in categorical_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+    label_encoders[col] = le
+
+X = df[categorical_cols].values
+y = df['Price'].values
+
+# 分割數據
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 轉 Tensor
+X_train_t = torch.LongTensor(X_train) # 注意：Embedding 輸入必須是 Long (整數)
+y_train_t = torch.FloatTensor(y_train).view(-1, 1)
+X_test_t = torch.LongTensor(X_test)
+y_test_t = torch.FloatTensor(y_test).view(-1, 1)
+
+# ==========================================
+# 3. 定義帶有 Embedding 的 MLP 模型
+# ==========================================
+class CarPriceNet(nn.Module):
+    def __init__(self, embedding_sizes, output_size=1):
+        super(CarPriceNet, self).__init__()
+        
+        # 建立 Embedding 層列表
+        # embedding_sizes 格式: [(品牌數, 向量維度), (車型數, 向量維度)...]
+        self.embeddings = nn.ModuleList([
+            nn.Embedding(num_categories, emb_dim) 
+            for num_categories, emb_dim in embedding_sizes
+        ])
+        
+        # 計算全連接層的輸入維度 (所有 Embedding 向量長度的總和)
+        self.n_emb = sum(e.embedding_dim for e in self.embeddings)
+        
+        self.mlp_layers = nn.Sequential(
+            nn.Linear(self.n_emb, 128),
+            nn.ReLU(),
+            nn.BatchNorm1d(128), # 用於加速收斂
+            nn.Dropout(0.2),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, x):
+        embeddings = []
+        # 對每一列特徵進行 Embedding 轉換
+        for i, emb_layer in enumerate(self.embeddings):
+            val = x[:, i]             # 取出第 i 列
+            emb = emb_layer(val)      # 轉換成向量
+            embeddings.append(emb)
+        
+        # 將所有特徵的向量拼接在一起
+        x = torch.cat(embeddings, 1) 
+        
+        # 進入 MLP
+        x = self.mlp_layers(x)
+        return x
+
+# 設定 Embedding 大小
+# 規則通常是: min(50, (x + 1) // 2)
+cat_dims = [len(label_encoders[col].classes_) for col in categorical_cols]
+emb_dims = [(x, min(50, (x + 1) // 2)) for x in cat_dims]
+
+print(f"Embedding Dimensions: {emb_dims}") 
+# 例如: [(4, 2), (3, 2), (3, 2)] -> 代表品牌有4種，我們用2維向量代表它
+
+model = CarPriceNet(emb_dims)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+# ==========================================
+# 4. 訓練
+# ==========================================
+epochs = 1000
+loss_history = []
+
+for epoch in range(epochs):
+    model.train()
+    optimizer.zero_grad()
+    output = model(X_train_t)
+    loss = criterion(output, y_train_t)
+    loss.backward()
+    optimizer.step()
+    
+    if epoch % 100 == 0:
+        print(f"Epoch {epoch}, Loss: {loss.item():.0f}")
+
+# ==========================================
+# 5. 評估 R-squared
+# ==========================================
+model.eval()
+with torch.no_grad():
+    y_pred = model(X_test_t)
+    
+    # 轉回 numpy
+    y_pred_np = y_pred.numpy()
+    y_test_np = y_test_t.numpy()
+    
+    r2 = r2_score(y_test_np, y_pred_np)
+
+print(f"\nFinal R-squared: {r2:.4f}")
+
+#################
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score
+from sklearn.preprocessing import StandardScaler
+
+# ==========================================
+# 1. 產生模擬數據 (跟剛才一樣)
+# ==========================================
+data = {
+    'Brand': ['Toyota', 'BMW', 'Honda', 'Ferrari', 'Toyota', 'BMW', 'Honda', 'Ferrari'] * 100,
+    'Type':  ['Sedan', 'SUV', 'Sedan', 'Sport', 'SUV', 'Sedan', 'SUV', 'Sport'] * 100,
+    'Origin':['Japan', 'Germany', 'Japan', 'Italy', 'Japan', 'Germany', 'Japan', 'Italy'] * 100,
+    'Price': [20000, 60000, 22000, 250000, 25000, 55000, 28000, 260000] * 100
+}
+df = pd.DataFrame(data)
+# 加入雜訊
+df['Price'] = df['Price'] + np.random.normal(0, 2000, len(df))
+
+# ==========================================
+# 2. 關鍵改變：One-Hot Encoding
+# ==========================================
+# 使用 pandas 的 get_dummies 自動將類別展開
+# columns指定要轉換的欄位
+df_processed = pd.get_dummies(df, columns=['Brand', 'Type', 'Origin'])
+
+# 檢查一下現在有多少特徵 (原來的3欄變成了更多欄)
+print("One-Hot 特徵欄位:", df_processed.columns.tolist())
+
+X = df_processed.drop('Price', axis=1).values.astype(np.float32)
+y = df_processed['Price'].values.astype(np.float32).reshape(-1, 1)
+
+# *技巧*：對目標值(y)進行標準化，這對回歸任務的收斂非常有幫助
+scaler_y = StandardScaler()
+y_scaled = scaler_y.fit_transform(y)
+
+# 分割數據
+X_train, X_test, y_train, y_test = train_test_split(X, y_scaled, test_size=0.2, random_state=42)
+
+# 轉 Tensor (注意：One-Hot 輸入是 Float，不是 Long)
+X_train_t = torch.FloatTensor(X_train)
+y_train_t = torch.FloatTensor(y_train)
+X_test_t = torch.FloatTensor(X_test)
+y_test_t = torch.FloatTensor(y_test)
+
+# ==========================================
+# 3. 定義 MLP 模型 (標準的全連接層)
+# ==========================================
+class CarPriceOneHotNet(nn.Module):
+    def __init__(self, input_size):
+        super(CarPriceOneHotNet, self).__init__()
+        
+        self.network = nn.Sequential(
+            # 第一層輸入就是 One-Hot 展開後的總維度
+            nn.Linear(input_size, 64),
+            nn.ReLU(),
+            nn.BatchNorm1d(64), # 標準化層，對於 One-Hot 這種稀疏數據很有幫助
+            nn.Dropout(0.2),    # 防止過擬合
+            
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            
+            nn.Linear(32, 1)    # 輸出價格
+        )
+
+    def forward(self, x):
+        return self.network(x)
+
+# 初始化模型
+input_dim = X_train.shape[1] # 自動取得特徵數量
+print(f"輸入層維度: {input_dim}") 
+
+model = CarPriceOneHotNet(input_dim)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+# ==========================================
+# 4. 訓練
+# ==========================================
+epochs = 1000
+for epoch in range(epochs):
+    model.train()
+    optimizer.zero_grad()
+    output = model(X_train_t)
+    loss = criterion(output, y_train_t)
+    loss.backward()
+    optimizer.step()
+    
+    if epoch % 100 == 0:
+        print(f"Epoch {epoch}, Loss: {loss.item():.4f}")
+
+# ==========================================
+# 5. 評估 R-squared
+# ==========================================
+model.eval()
+with torch.no_grad():
+    y_pred_scaled = model(X_test_t).numpy()
+    
+    # *關鍵*：要把預測值還原回真實價格範圍，才能算正確的 R2
+    y_pred_original = scaler_y.inverse_transform(y_pred_scaled)
+    y_test_original = scaler_y.inverse_transform(y_test_t.numpy())
+    
+    r2 = r2_score(y_test_original, y_pred_original)
+
+print(f"\nFinal R-squared (One-Hot): {r2:.4f}")
