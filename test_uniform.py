@@ -129,4 +129,42 @@ score_nonuniform, lof_n = uniformity_lof_score(nonuniform)
 print("Uniform dataset score:", score_uniform)
 print("Non-uniform dataset score:", score_nonuniform)
 
+###########################################################
+from scipy.stats import ks_1samp
+
+# KS檢定
+def ks_test_uniformity(x):
+    # 正規化數據到 [0, 1] 範圍
+    normalized_x = (x - min(x)) / (max(x) - min(x))
+    
+    # 執行 KS 檢定，與均勻分佈進行比較
+    ks_stat, p_value = ks_1samp(normalized_x, 'uniform')
+    
+    return ks_stat, p_value
+
+# 示例
+import numpy as np
+x_uniform = np.random.uniform(0, 1, 500)  # 均勻分佈數據
+x_nonuniform = np.random.normal(0.5, 0.1, 500)  # 正態分佈數據
+
+# KS 檢定結果
+print("均勻分佈數據檢定:", ks_test_uniformity(x_uniform))
+print("非均勻分佈數據檢定:", ks_test_uniformity(x_nonuniform))
+
+##################################################################
+
+from scipy.stats import anderson
+
+# Anderson-Darling檢定
+def anderson_test_uniformity(x):
+    # 正規化數據到 [0, 1] 範圍
+    normalized_x = (x - min(x)) / (max(x) - min(x))
+    
+    # Anderson-Darling檢定
+    result = anderson(normalized_x, dist='uniform')
+    return result.statistic, result.critical_values, result.significance_level
+
+# 測試
+print("均勻分佈數據檢定:", anderson_test_uniformity(x_uniform))
+print("非均勻分佈數據檢定:", anderson_test_uniformity(x_nonuniform))
 
