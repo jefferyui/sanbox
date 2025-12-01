@@ -87,3 +87,46 @@ for name, data in datasets.items():
     plt.ylabel("Y")
     plt.show()
 
+##########################################################
+##########################################################
+
+import numpy as np
+from sklearn.neighbors import LocalOutlierFactor
+
+def uniformity_lof_score(data, n_neighbors=20):
+
+    lof = LocalOutlierFactor(n_neighbors=n_neighbors)
+    lof_scores = -lof.fit_predict(data)  # 1=正常, -1=outlier (但不夠用)
+
+    # # 真正的 LOF value 用 negative_outlier_factor_
+    lof_values = -lof.negative_outlier_factor_
+
+    # # 均勻度指標 = LOF 的標準差反比
+    lof_std = np.std(lof_values)
+    # lof_std = np.std(lof_scores)
+    uniformity_score = 1 / (1 + lof_std)
+
+    return uniformity_score, lof_scores
+
+
+# --------- 測試用資料 ---------
+
+np.random.seed(42)
+
+# 均勻
+uniform = np.random.rand(300, 2)
+
+# 不均勻 (clusters)
+cluster1 = np.random.normal([0.25,0.25], 0.05, (120,2))
+cluster2 = np.random.normal([0.75,0.75], 0.05, (120,2))
+noise = np.random.rand(60, 2)
+nonuniform = np.vstack([cluster1, cluster2, noise])
+
+# --------- 計算 ---------
+score_uniform, lof_u = uniformity_lof_score(uniform)
+score_nonuniform, lof_n = uniformity_lof_score(nonuniform)
+
+print("Uniform dataset score:", score_uniform)
+print("Non-uniform dataset score:", score_nonuniform)
+
+
