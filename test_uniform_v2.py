@@ -144,3 +144,48 @@ for name, data in datasets.items():
 
 df = pd.DataFrame(results, columns=["dataset", "grid_score", "knn_score", "kde_score", "final_uniformity"])
 df
+
+
+✅ 方法 1：Grid Density Variance（最推薦，最穩定）
+
+把整個 XY 平面分成 10×10 格子（可調），
+每個格子應該都有類似數量的點 → 才代表均勻分佈。
+
+衡量指標：
+
+Grid Uniformity Score = 1 / (1 + CV(grid_counts))
+CV = 點數的變異係數 = std / mean
+
+🟢 score 越接近 1 → 越均勻
+
+🔴 分布越偏、越有 cluster → score 越低
+
+✅ 方法 2：KNN 距離變異度（Local Density Variation）
+
+均勻分佈時：
+
+每個點到鄰近 10 個點的平均距離都差不多
+
+不均勻會出現：cluster（距離短）＋稀疏區（距離長）
+
+衡量指標：
+
+KNN Uniformity Score = 1 / (1 + std(avg_distances))
+
+越接近 1 → XY 越均勻
+
+越接近 0 → 有 cluster 或空洞
+
+✅ 方法 3：KDE 密度平滑度（Density Smoothness）
+
+對 XY 做 Kernel Density Estimation，均勻時：
+
+密度曲面非常平滑（變化小）
+
+衡量指標：
+
+KDE Uniformity Score = 1 / (1 + std(density_values))
+
+越平滑 → 越均勻
+
+出現峰值（cluster）→ 分數下降
