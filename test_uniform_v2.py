@@ -1,3 +1,5 @@
+https://www.sciencedirect.com/topics/mathematics/uniform-grid
+
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
