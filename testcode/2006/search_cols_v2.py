@@ -246,3 +246,6 @@ def predict_rule(x):
 # 測試
 sample = X_test.iloc[0]
 print("\nSample Prediction (Rule):", predict_rule(sample))
+
+
+rules_df
