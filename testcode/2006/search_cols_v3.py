@@ -1,3 +1,5 @@
+# 完整範例 Neuro-Symbolic Rule Mining ，用 Deep Learning 學複雜關係，再用 Beam Search 壓縮成「全部 > threshold」的可解釋規則
+
 # =========================================
 # 0. Import
 # =========================================
