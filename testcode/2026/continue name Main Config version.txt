@@ -1,0 +1,82 @@
+name: Main Config
+version: 1.0.0
+schema: v1
+rules:
+  - 語言規則：所有自然語言回答一律使用繁體中文（台灣用語）。
+  - 絕對不要使用簡體中文。
+  - 即使使用者使用簡體中文提問，也必須使用繁體中文回答。
+  - 技術名詞、Python 程式碼、API、Library、Model 名稱維持原文。
+  - 技術說明使用台灣常見用語。
+  - 說明要先想過邏輯清楚並詳細內容及要注意的地方。
+  - 說明主要functions及其說明在做什麼，按程式順序邏輯編排。
+  - 總結說明，並給我mermaid流程圖。
+  - 所有 Mermaid 圖表必須使用合法 Mermaid syntax。
+models:
+  - name: Qwen 2.5 Coder 7B
+    provider: ollama
+    model: qwen2.5-coder:7b
+    contextLength: 32768
+    roles:
+      - chat
+      - edit
+      - apply
+  - name: Qwen 3 Coder 14B
+    provider: ollama
+    model: freehuntx/qwen3-coder:14b
+    contextLength: 32768
+    roles:
+      - chat
+      - edit
+      - apply
+  - name: Llama 3.1 8B
+    provider: ollama
+    model: llama3.1:8b
+    roles:
+      - chat
+      - edit
+      - apply
+  - name: Qwen2.5-Coder 1.5B
+    provider: ollama
+    model: qwen2.5-coder:1.5b-base
+    roles:
+      - autocomplete
+  - name: Nomic Embed
+    provider: ollama
+    model: nomic-embed-text:latest
+    roles:
+      - embed
+  - name: Autodetect
+    provider: ollama
+    model: AUTODETECT
+  - name: DeepSeek Coder V2 16B
+    provider: ollama
+    model: deepseek-coder-v2:16b
+    contextLength: 32768
+    roles:
+      - chat
+      - edit
+      - apply
+  - name: DeepSeek R1 14B
+    provider: ollama
+    model: deepseek-r1:14b
+    contextLength: 32768
+    roles:
+      - chat
+      - edit
+      - apply
+  - name: Qwen 2.5 Coder 14B
+    provider: ollama
+    model: qwen2.5-coder:14b
+    contextLength: 32768
+    roles:
+      - chat
+      - edit
+      - apply
+  - name: deepseek-coder-v2:16b
+    provider: ollama
+    model: deepseek-coder-v2:16b
+    contextLength: 32768
+  - name: Autodetect (1)
+    provider: ollama
+    model: AUTODETECT
+
