@@ -1,0 +1,74 @@
+要在 VS Code 的 Python 套件庫下拉選單中全域選取建在特定資料夾的虛擬環境（venv），最簡單且標準的做法是將該環境的路徑註冊到 VS Code 的全域設定檔中。
+
+請按照以下步驟設定：
+
+複製你的 venv 路徑
+找出該虛擬環境的完整絕對路徑（需要包含到 venv 資料夾本身，或是裡面的 bin / Scripts 資料夾）。
+
+
+Windows 範例： C:\Users\YourName\my_envs\my_venv
+
+Mac/Linux 範例： /Users/yourname/my_envs/my_venv
+
+開啟全域 settings.json
+
+
+按下快捷鍵 Ctrl + Shift + P（Mac 為 Cmd + Shift + P）開啟命令面板。
+
+輸入並選擇 Preferences: Open User Settings (JSON)（注意要選 User，這才是全域設定）。
+
+新增 python.venvFolders 或 python.venvPath 設定
+在開啟的 JSON 檔中新增以下設定（若已有其他設定，記得加上逗號分隔）：
+
+
+方式 A：指定個別環境路徑（推薦）
+
+
+JSON
+"python.venvFolders": [
+  "C:\\Users\\jeffe\\Downloads\\Python_Exercise\\Start-Up"
+]
+
+(注意：Windows 路徑在 JSON 格式中需使用雙斜線 \\)
+
+方式 B：指定集中管理 venv 的父資料夾
+如果你的集中資料夾底下有多個 venv（例如 ~/my_envs/env1, ~/my_envs/env2）：
+
+
+JSON
+"python.venvPath": "C:\\Users\\YourName\\my_envs"
+
+VS Code 會自動掃描該資料夾內的所有虛擬環境。
+
+重新載入並選取
+
+
+儲存 settings.json 後，按下 Ctrl + Shift + P 輸入 Python: Select Interpreter。
+
+點擊右上角的重新整理按鈕，你設定的虛擬環境就會出現在可選清單中了。
+
+
+
+ubuntu ex:
+{
+ "models": [
+   {
+     "title": "qwen2.5-coder:7b",
+     "provider": "ollama",
+     "model": "qwen2.5-coder:7b",
+     "contextLength": 65536,
+     "requestOptions": {
+       "num_ctx": 65536
+     }
+   }
+ ],
+ "chat.viewSessions.orientation": "stacked",
+ "jupyter.interactiveWindow.creationMode": "perFile",
+ "notebook.outline.showCodeCellSymbols": false,
+ "python-envs.globalSearchPaths": [
+     "/home/jeffery/Python/ai_env"
+ ],
+ "editor.unicodeHighlight.nonBasicASCII": false,
+ "editor.unicodeHighlight.ambiguousCharacters": false
+}
+
